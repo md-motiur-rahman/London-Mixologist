@@ -1,0 +1,8 @@
+{
+  "name": "London Mixologist v0.01",
+  "description": "Your AI-powered personal bartender and shopping assistant in London.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}

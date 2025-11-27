@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>London Mixologist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              royalblue: 'rgb(var(--c-royalblue) / <alpha-value>)',
+              sapphire: 'rgb(var(--c-sapphire) / <alpha-value>)',
+              quicksand: 'rgb(var(--c-quicksand) / <alpha-value>)',
+              swanwing: 'rgb(var(--c-swanwing) / <alpha-value>)',
+              shellstone: 'rgb(var(--c-shellstone) / <alpha-value>)',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-in-out',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        /* Default (Dark Mode) - The Royal Blue Theme */
+        --c-royalblue: 17 34 80;    /* #112250 Main Background */
+        --c-sapphire: 60 80 125;    /* #3C507D Secondary/Borders */
+        --c-quicksand: 224 197 143; /* #E0C58F Gold Accent */
+        --c-swanwing: 245 240 233;  /* #F5F0E9 Main Text (Swan Wing) */
+        --c-shellstone: 217 203 194;/* #D9CBC2 Muted Text */
+      }
+
+      .light-mode {
+        /* Light Mode - Swan Wing Theme */
+        /* Background becomes Swan Wing (Cream) */
+        --c-royalblue: 245 240 233; 
+        
+        /* Secondary becomes a Slate Blue for soft definition against cream */
+        --c-sapphire: 100 116 139;  
+        
+        /* Accent becomes a Darker Bronze/Gold for visibility */
+        --c-quicksand: 161 122 64;  
+        
+        /* Main Text becomes Royal Blue (Inverted from dark mode) */
+        --c-swanwing: 17 34 80;     
+        
+        /* Muted Text becomes Dark Slate */
+        --c-shellstone: 71 85 105;  
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: rgb(var(--c-royalblue));
+        color: rgb(var(--c-swanwing));
+        /* Smooth transition for all color changes */
+        transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+      }
+      
+      /* Ensure all elements transition smoothly */
+      *, *::before, *::after {
+        transition-property: background-color, border-color, color, fill, stroke;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 500ms;
+      }
+
+      h1, h2, h3, .serif {
+        font-family: 'Playfair Display', serif;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgb(var(--c-royalblue));
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgb(var(--c-sapphire));
+        border-radius: 3px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
