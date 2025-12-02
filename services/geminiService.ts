@@ -2,16 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { CocktailRecipe, ShoppingRecommendation, ShoppingLocation, PartyGameSuggestion, SpicyDiceResult } from "../types";
 
 const apiKey = process.env.API_KEY || '';
-
-// Initialize client only if key exists to avoid immediate crash, but handle missing key in functions
 const ai = new GoogleGenAI({ apiKey });
-
-// Helper to validate environment
-const checkApiKey = () => {
-  if (!apiKey) {
-    throw new Error("API configuration is missing. Please ensure the API_KEY environment variable is set.");
-  }
-};
 
 const RECIPE_SCHEMA = {
   type: Type.OBJECT,
@@ -39,9 +30,7 @@ const RECIPE_SCHEMA = {
 };
 
 export const generateCocktailRecipe = async (inputs: string, preferences: string): Promise<CocktailRecipe> => {
-  checkApiKey();
-  // Use Pro model for complex reasoning and better recipes
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-2.5-flash";
   
   const prompt = `Create a unique, London-inspired or classic cocktail recipe based on these ingredients: ${inputs}. 
   User preferences: ${preferences}.
@@ -54,28 +43,21 @@ export const generateCocktailRecipe = async (inputs: string, preferences: string
   - Provide a short reason why this product upgrades the experience.
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: RECIPE_SCHEMA
-      }
-    });
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RECIPE_SCHEMA
+    }
+  });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI");
-    return JSON.parse(text) as CocktailRecipe;
-  } catch (error) {
-    console.error("Recipe Generation Error:", error);
-    throw new Error("Failed to generate recipe. The bartender might be overwhelmed right now.");
-  }
+  const text = response.text;
+  if (!text) throw new Error("No response from AI");
+  return JSON.parse(text) as CocktailRecipe;
 };
 
-export const getShoppingSuggestions = async (item: string, location: string, coords?: { lat: number, lng: number }): Promise<ShoppingRecommendation> => {
-  checkApiKey();
-  // Flash is sufficient for fast search/lookup tasks
+export const getShoppingSuggestions = async (item: string, location: string): Promise<ShoppingRecommendation> => {
   const model = "gemini-2.5-flash";
   
   const prompt = `I am in ${location}. Where can I buy ${item}? 
@@ -83,66 +65,46 @@ export const getShoppingSuggestions = async (item: string, location: string, coo
   Also, generate search queries for online delivery services.
   `;
 
-  const config: any = {
-    tools: [{ googleMaps: {} }],
+  // Use Google Maps tool
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      tools: [{ googleMaps: {} }],
+    }
+  });
+
+  const text = response.text || "";
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+  const locations: ShoppingLocation[] = [];
+
+  // Extract map data if available
+  groundingChunks.forEach(chunk => {
+    if (chunk.web?.uri && chunk.web?.title) {
+         locations.push({
+            name: chunk.web.title,
+            address: "Web Result",
+            mapLink: chunk.web.uri
+        });
+    }
+  });
+
+  const encodedItem = encodeURIComponent(item);
+  
+  return {
+    intro: text,
+    locations: locations, 
+    onlineLinks: {
+      amazonSearch: `https://www.amazon.co.uk/s?k=${encodedItem}`,
+      uberEatsSearch: `https://www.ubereats.com/gb/search?q=${encodedItem}`,
+      waitroseSearch: `https://www.waitrose.com/ecom/shop/search?&searchTerm=${encodedItem}`
+    }
   };
-
-  if (coords) {
-    config.toolConfig = {
-      retrievalConfig: {
-        latLng: {
-          latitude: coords.lat,
-          longitude: coords.lng
-        }
-      }
-    };
-  }
-
-  try {
-    // Use Google Maps tool
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config
-    });
-
-    const text = response.text || "";
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-
-    const locations: ShoppingLocation[] = [];
-
-    // Extract map data if available
-    groundingChunks.forEach(chunk => {
-      if (chunk.web?.uri && chunk.web?.title) {
-          locations.push({
-              name: chunk.web.title,
-              address: "Web Result",
-              mapLink: chunk.web.uri
-          });
-      }
-    });
-
-    const encodedItem = encodeURIComponent(item);
-    
-    return {
-      intro: text,
-      locations: locations, 
-      onlineLinks: {
-        amazonSearch: `https://www.amazon.co.uk/s?k=${encodedItem}`,
-        uberEatsSearch: `https://www.ubereats.com/gb/search?q=${encodedItem}`,
-        waitroseSearch: `https://www.waitrose.com/ecom/shop/search?&searchTerm=${encodedItem}`
-      }
-    };
-  } catch (error) {
-    console.error("Shopping Suggestion Error:", error);
-    throw new Error("Could not find shopping suggestions. Please try again later.");
-  }
 };
 
 export const generatePartyGame = async (players: string, vibe: string, supplies: string): Promise<PartyGameSuggestion> => {
-  checkApiKey();
-  // Pro model for better creativity in game design
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-2.5-flash";
 
   const prompt = `Create a fun, creative drinking game or party game based on the following parameters:
   - Number of Players: ${players}
@@ -164,29 +126,22 @@ export const generatePartyGame = async (players: string, vibe: string, supplies:
     required: ["title", "description", "setup", "rules", "vibeMatch"]
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema
-      }
-    });
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: schema
+    }
+  });
 
-    const text = response.text;
-    if (!text) throw new Error("Failed to generate game");
-    return JSON.parse(text) as PartyGameSuggestion;
-  } catch (error) {
-    console.error("Game Generation Error:", error);
-    throw new Error("Unable to create a game right now.");
-  }
+  const text = response.text;
+  if (!text) throw new Error("Failed to generate game");
+  return JSON.parse(text) as PartyGameSuggestion;
 };
 
 export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDiceResult> => {
-  checkApiKey();
-  // Pro model for better nuance and context adherence
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-2.5-flash";
 
   const prompt = `Generate a romantic or spicy "sex dice" result for a couple. 
   Intensity Level: ${intensity}.
@@ -213,137 +168,99 @@ export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDic
     required: ["action", "detail", "instruction"]
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema
-      }
-    });
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: schema
+    }
+  });
 
-    const text = response.text;
-    if (!text) throw new Error("Failed to generate roll");
-    return JSON.parse(text) as SpicyDiceResult;
-  } catch (error) {
-    console.error("Dice Roll Error:", error);
-    throw new Error("The dice are stuck. Try rolling again.");
-  }
+  const text = response.text;
+  if (!text) throw new Error("Failed to generate roll");
+  return JSON.parse(text) as SpicyDiceResult;
 };
 
 export const generateSpicyIllustration = async (action: string, detail: string): Promise<string> => {
-  checkApiKey();
-  // Use Pro Image model for higher quality
-  const model = "gemini-3-pro-image-preview";
+  const model = "gemini-2.5-flash-image";
 
-  const prompt = `Create a high-quality, artistic line-art or minimalist illustration.
-  Subject: A romantic couple depicting ${action} involving ${detail}.
-  Style: Elegant, tasteful, continuous line drawing, black ink on white background. Abstract, artistic, simple vector art style.
-  Mood: Playful, romantic, intimate but safe for work (NO NUDITY).
-  Quality: Professional, clean lines.`;
+  const prompt = `Create a cute, minimalist, tasteful line-art cartoon illustration of a couple. 
+  Concept: Romantic couple doing ${action} near ${detail}.
+  Style: Simple black outline drawing on white background. Abstract, artistic, stick-figure style or simple vector art. 
+  NO NUDITY. Keep it playful, heartwarming and romantic. High quality sketch.`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: {
-        parts: [{ text: prompt }]
-      },
-      config: {
-        imageConfig: {
-            aspectRatio: "1:1",
-            imageSize: "1K"
-        }
-      }
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
+  const response = await ai.models.generateContent({
+    model,
+    contents: {
+      parts: [{ text: prompt }]
     }
-    
-    throw new Error("No image generated");
-  } catch (error) {
-    console.error("Illustration Error:", error);
-    throw new Error("Could not sketch the idea.");
+  });
+
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return part.inlineData.data;
+    }
   }
+  
+  throw new Error("No image generated");
 };
 
 // --- Vision Features ---
 
 export const analyzeImageForRecipe = async (base64Image: string): Promise<CocktailRecipe> => {
-  checkApiKey();
-  // Flash is multimodal and highly efficient for this, but prompt needs to be rigorous
   const model = "gemini-2.5-flash";
 
-  const prompt = `Role: Expert Mixologist with eagle-eyed vision.
-  Task:
-  1. ANALYZE the image to identify every visible alcohol brand, mixer, fruit, and bar tool. Be specific (e.g. 'Hendrick's Gin' instead of just 'Gin' if visible).
-  2. SELECT the SINGLE BEST cocktail that can be made primarily with these detected ingredients plus basic pantry staples (ice, sugar, lemon/lime).
-  3. CREATE a detailed JSON recipe for this cocktail.
-  4. RECOMMEND exactly 3 missing items (ingredients/tools/glassware) that would significantly elevate this specific drink.
+  const prompt = `Look at this image of bottles and ingredients. 
+  1. Identify the alcohol, mixers, and other ingredients present.
+  2. Create the BEST possible cocktail recipe using ONLY what you see (plus basic staples like sugar/lemon/ice).
+  3. Identify 3-4 missing items (Recommended Products) that would upgrade this drink significantly.
+     - Is the user missing a specific garnish?
+     - Would a specific type of glass make it better?
+     - Is there a specific tool (muddler, strainer) needed?
+  4. Return a JSON recipe object.
+  `;
 
-  Return the result strictly as the requested JSON object.`;
+  const response = await ai.models.generateContent({
+    model,
+    contents: {
+      parts: [
+        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+        { text: prompt }
+      ]
+    },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RECIPE_SCHEMA
+    }
+  });
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: RECIPE_SCHEMA
-      }
-    });
-
-    const text = response.text;
-    if (!text) throw new Error("Could not analyze image");
-    return JSON.parse(text) as CocktailRecipe;
-  } catch (error) {
-    console.error("Vision Analysis Error:", error);
-    throw new Error("Could not analyze the photo. Please ensure it's clear and try again.");
-  }
+  const text = response.text;
+  if (!text) throw new Error("Could not analyze image");
+  return JSON.parse(text) as CocktailRecipe;
 };
 
 export const generateCocktailImage = async (recipeName: string, description: string): Promise<string> => {
-  checkApiKey();
-  // Use Pro Image model for 4K/high-res generation
-  const model = "gemini-3-pro-image-preview";
+  const model = "gemini-2.5-flash-image"; // Dedicated image generation model
 
-  const prompt = `Professional food photography, 8k resolution, macro lens shot of a ${recipeName} cocktail. 
+  const prompt = `A professional, photorealistic 4k close-up photograph of a ${recipeName} cocktail. 
   Description: ${description}. 
   Setting: A dimly lit, sophisticated London speakeasy bar with moody lighting and elegant glassware. 
-  Details: Crystal clear glass, condensation, perfect garnish, hyper-realistic, cinematic lighting.`;
+  The drink looks delicious and refreshing.`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: {
-        parts: [{ text: prompt }]
-      },
-      config: {
-        imageConfig: {
-            aspectRatio: "1:1",
-            imageSize: "1K"
-        }
-      }
-    });
-
-    // Extract the image from the response
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
+  const response = await ai.models.generateContent({
+    model,
+    contents: {
+      parts: [{ text: prompt }]
     }
-    
-    throw new Error("No image generated");
-  } catch (error) {
-    console.error("Cocktail Image Generation Error:", error);
-    throw new Error("Could not generate the cocktail visualization.");
+  });
+
+  // Extract the image from the response
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return part.inlineData.data;
+    }
   }
+  
+  throw new Error("No image generated");
 };
