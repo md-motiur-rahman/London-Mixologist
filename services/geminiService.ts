@@ -73,7 +73,7 @@ export const generateCocktailRecipe = async (inputs: string, preferences: string
   }
 };
 
-export const getShoppingSuggestions = async (item: string, location: string): Promise<ShoppingRecommendation> => {
+export const getShoppingSuggestions = async (item: string, location: string, coords?: { lat: number, lng: number }): Promise<ShoppingRecommendation> => {
   checkApiKey();
   // Flash is sufficient for fast search/lookup tasks
   const model = "gemini-2.5-flash";
@@ -83,14 +83,27 @@ export const getShoppingSuggestions = async (item: string, location: string): Pr
   Also, generate search queries for online delivery services.
   `;
 
+  const config: any = {
+    tools: [{ googleMaps: {} }],
+  };
+
+  if (coords) {
+    config.toolConfig = {
+      retrievalConfig: {
+        latLng: {
+          latitude: coords.lat,
+          longitude: coords.lng
+        }
+      }
+    };
+  }
+
   try {
     // Use Google Maps tool
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
-      config: {
-        tools: [{ googleMaps: {} }],
-      }
+      config
     });
 
     const text = response.text || "";

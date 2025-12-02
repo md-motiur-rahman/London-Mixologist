@@ -1,20 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { getShoppingSuggestions } from '../services/geminiService';
 import { ShoppingRecommendation } from '../types';
-import { Loader2, MapPin, ShoppingCart, ExternalLink, Search } from 'lucide-react';
+import { Loader2, MapPin, ShoppingCart, ExternalLink, Search, Navigation } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { SocialShare } from './SocialShare';
 
 export const ShoppingAssistant: React.FC = () => {
   const [item, setItem] = useState('');
   const [location, setLocation] = useState('Central London');
+  const [coords, setCoords] = useState<{lat: number, lng: number} | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ShoppingRecommendation | null>(null);
 
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => { },
+        (position) => {
+             setCoords({
+                 lat: position.coords.latitude,
+                 lng: position.coords.longitude
+             });
+             setLocation("Current Location (Found)");
+        },
         (error) => { console.log("Geolocation permission denied or error."); }
       );
     }
@@ -25,7 +32,7 @@ export const ShoppingAssistant: React.FC = () => {
     setLoading(true);
     setResult(null);
     try {
-      const data = await getShoppingSuggestions(item, location);
+      const data = await getShoppingSuggestions(item, location, coords);
       setResult(data);
     } catch (error) {
       console.error(error);
@@ -68,8 +75,16 @@ export const ShoppingAssistant: React.FC = () => {
                         placeholder="Location (e.g. Soho)"
                         className="w-full bg-royalblue pl-10 pr-4 py-3 rounded-lg text-swanwing border border-sapphire focus:border-quicksand focus:ring-1 focus:ring-quicksand focus:outline-none placeholder-shellstone/50 transition-colors"
                         value={location}
-                        onChange={(e) => setLocation(e.target.value)}
+                        onChange={(e) => {
+                            setLocation(e.target.value);
+                            setCoords(undefined); // Reset coords if user types manually
+                        }}
                     />
+                    {coords && location.includes("Found") && (
+                        <div className="absolute right-3 top-3 text-emerald-400 animate-pulse">
+                            <Navigation size={18} fill="currentColor" />
+                        </div>
+                    )}
                 </div>
                 <button
                     onClick={handleSearch}
