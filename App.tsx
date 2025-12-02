@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { CocktailGenerator } from './components/CocktailGenerator';
 import { ShoppingAssistant } from './components/ShoppingAssistant';
@@ -22,6 +22,16 @@ function App() {
   // User State - Default to null (logged out)
   const [user, setUser] = useState<UserProfile | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+
+  // Scroll Ref
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top on view change for smooth UX
+  useLayoutEffect(() => {
+    if (mainContentRef.current) {
+        mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentView]);
 
   useEffect(() => {
     // Check Age Verification
@@ -54,16 +64,14 @@ function App() {
     }
 
     // Admin URL Check (adminmixlock)
-    // If the URL hash is #adminmixlock, we check auth or redirect to login
     if (window.location.hash === '#adminmixlock') {
         if (user?.role === 'admin') {
             setCurrentView(AppView.ADMIN);
         } else {
-            // Force user to login screen if they try to access admin url without being logged in
             setCurrentView(AppView.PROFILE);
         }
     }
-  }, [user?.role]); // Re-run if user role changes (e.g. after login)
+  }, [user?.role]);
 
   const handleVerify = () => {
     localStorage.setItem('london_mixologist_age_verified', 'true');
@@ -85,7 +93,6 @@ function App() {
   const handleLogin = (newUser: UserProfile) => {
     setUser(newUser);
     localStorage.setItem('london_mixologist_user', JSON.stringify(newUser));
-    // If they were trying to access admin, send them there upon successful admin login
     if (newUser.role === 'admin' && window.location.hash === '#adminmixlock') {
         setCurrentView(AppView.ADMIN);
     } else {
@@ -108,7 +115,6 @@ function App() {
 
   const handleSaveRecipe = (recipe: CocktailRecipe) => {
     if (!user) {
-      // Prompt login if trying to save while logged out
       setCurrentView(AppView.PROFILE);
       return;
     }
@@ -175,7 +181,7 @@ function App() {
     }
   };
 
-  if (checkingAuth) return null; // Prevent flash of content
+  if (checkingAuth) return null;
 
   const isLegalPage = [
     AppView.COOKIE_POLICY, 
@@ -184,9 +190,7 @@ function App() {
     AppView.DISCLAIMER
   ].includes(currentView);
 
-  // STRICT AGE GATE:
-  // If not verified, only show the Modal (or legal pages if clicked from modal).
-  // Do NOT render the main app structure (Navigation, Dashboard, etc.) behind it.
+  // STRICT AGE GATE
   if (!isAgeVerified) {
     return (
       <div className="h-screen bg-royalblue text-swanwing font-sans relative overflow-hidden flex flex-col">
@@ -201,11 +205,10 @@ function App() {
     );
   }
 
-  // Authenticated / Verified App Structure
   return (
     <div className="flex flex-col min-h-screen bg-royalblue text-swanwing font-sans selection:bg-quicksand selection:text-royalblue overflow-hidden relative transition-colors duration-500">
       
-      {/* Navigation - Top Bar on Desktop, Bottom bar on Mobile */}
+      {/* Navigation */}
       <Navigation 
         currentView={currentView} 
         setView={setCurrentView} 
@@ -215,14 +218,20 @@ function App() {
       />
       
       {/* Main Content Area */}
-      {/* Added pt-24 specifically for desktop to clear the fixed top nav */}
-      <main className="flex-1 w-full h-full overflow-y-auto relative scroll-smooth bg-royalblue transition-colors duration-500 pt-0 md:pt-24">
+      {/* Added ref for scroll control and pt-24 for header spacing */}
+      <main 
+        ref={mainContentRef}
+        className="flex-1 w-full h-full overflow-y-auto relative scroll-smooth bg-royalblue transition-colors duration-500 pt-0 md:pt-24"
+      >
          {/* Ambient Background Lights */}
          <div className="fixed top-[-20%] right-[-10%] w-[600px] h-[600px] bg-quicksand/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
          <div className="fixed bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-sapphire/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
          
          <div className="pb-24 md:pb-0 min-h-full relative z-10">
-           {renderView()}
+           {/* Key prop ensures the animation replays when view changes */}
+           <div key={currentView} className="animate-fade-in">
+              {renderView()}
+           </div>
          </div>
       </main>
     </div>

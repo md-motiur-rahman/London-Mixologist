@@ -79,6 +79,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
       setShowSubscriptionModal(false);
   };
 
+  // Helper for smoother toggle switch
+  const ToggleSwitch = ({ active, onClick, disabled }: { active: boolean, onClick?: () => void, disabled?: boolean }) => (
+      <div 
+        onClick={!disabled ? onClick : undefined}
+        className={`w-14 h-8 rounded-full relative transition-all duration-300 border border-transparent ${disabled ? 'opacity-60 cursor-not-allowed bg-emerald-500/20' : 'cursor-pointer'} ${active ? 'bg-quicksand shadow-[0_0_10px_rgba(224,197,143,0.3)]' : 'bg-sapphire/30 hover:bg-sapphire/50'}`}
+      >
+          <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${active ? 'left-7' : 'left-1'}`}></div>
+      </div>
+  );
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full animate-fade-in space-y-8">
       <SubscriptionModal 
@@ -88,11 +98,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
       />
 
       {/* Header Profile Card */}
-      <div className="bg-sapphire/10 backdrop-blur-sm rounded-3xl p-6 md:p-10 border border-sapphire/30 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden">
+      <div className="bg-sapphire/10 backdrop-blur-sm rounded-3xl p-6 md:p-10 border border-sapphire/30 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden transition-all hover:border-sapphire/50">
          <div className="absolute top-0 right-0 w-64 h-64 bg-quicksand/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
          
          <div className="relative group">
-            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-quicksand shadow-xl overflow-hidden bg-royalblue relative">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-quicksand shadow-xl overflow-hidden bg-royalblue relative transition-transform duration-300 group-hover:scale-105">
                 <img 
                     src={user.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=default"} 
                     alt={user.name} 
@@ -100,7 +110,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                 />
                 <div 
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"
+                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-sm"
                 >
                     <Camera size={24} />
                 </div>
@@ -108,7 +118,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
             
             {user.subscriptionStatus === 'active' && (
-                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-600 border border-yellow-200 text-white p-1.5 rounded-full shadow-lg z-10">
+                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-600 border border-yellow-200 text-white p-1.5 rounded-full shadow-lg z-10 animate-bounce delay-1000">
                     <Crown size={14} fill="currentColor" />
                 </div>
             )}
@@ -202,7 +212,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                      <p className="text-shellstone mb-6">Start mixing to save your creations here.</p>
                      <button 
                         onClick={() => onNavigate(AppView.GENERATOR)}
-                        className="px-6 py-2 bg-quicksand text-royalblue rounded-lg font-bold hover:bg-quicksand/90"
+                        className="px-6 py-2 bg-quicksand text-royalblue rounded-lg font-bold hover:bg-quicksand/90 transition-all hover:scale-105"
                      >
                         Go to Mixer
                      </button>
@@ -226,7 +236,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                              { name: 'Angostura Aromatic Bitters', price: '£12.00', store: 'Waitrose' },
                              { name: 'Copper Cocktail Shaker Set', price: '£35.50', store: 'Amazon' }
                          ].map((item, i) => (
-                             <div key={i} className="flex items-center justify-between p-4 bg-royalblue border border-sapphire/20 rounded-lg hover:border-quicksand/30 transition-colors group cursor-pointer">
+                             <div key={i} className="flex items-center justify-between p-4 bg-royalblue border border-sapphire/20 rounded-lg hover:border-quicksand/30 transition-all hover:translate-x-1 group cursor-pointer shadow-sm hover:shadow-lg">
                                  <div className="flex items-center gap-4">
                                      <div className="w-12 h-12 bg-swanwing/10 rounded-md flex items-center justify-center text-swanwing font-serif font-bold text-xl">
                                          {item.name[0]}
@@ -257,7 +267,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                  <p className="text-shellstone">Manage your access and billing.</p>
                              </div>
                              {user.subscriptionStatus === 'active' ? (
-                                 <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 font-bold flex items-center gap-2">
+                                 <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 font-bold flex items-center gap-2 shadow-[0_0_10px_rgba(52,211,153,0.2)]">
                                      <CheckCircle size={18} /> Active
                                  </div>
                              ) : (
@@ -268,7 +278,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                          </div>
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                             <div className={`p-6 rounded-xl border-2 transition-all ${user.subscriptionStatus !== 'active' ? 'border-quicksand bg-quicksand/5' : 'border-sapphire/30 bg-sapphire/10 opacity-50'}`}>
+                             <div className={`p-6 rounded-xl border-2 transition-all duration-300 ${user.subscriptionStatus !== 'active' ? 'border-quicksand bg-quicksand/5 shadow-lg' : 'border-sapphire/30 bg-sapphire/10 opacity-50'}`}>
                                  <div className="flex justify-between items-start mb-4">
                                      <h4 className="font-bold text-lg text-swanwing">Free Tier</h4>
                                      {user.subscriptionStatus !== 'active' && <CheckCircle size={20} className="text-quicksand" />}
@@ -280,9 +290,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                  </ul>
                              </div>
 
-                             <div className={`p-6 rounded-xl border-2 transition-all relative ${user.subscriptionStatus === 'active' ? 'border-quicksand bg-quicksand/5' : 'border-sapphire/30 bg-sapphire/10'}`}>
+                             <div className={`p-6 rounded-xl border-2 transition-all duration-300 relative ${user.subscriptionStatus === 'active' ? 'border-quicksand bg-quicksand/5 shadow-lg' : 'border-sapphire/30 bg-sapphire/10'}`}>
                                  {user.subscriptionStatus !== 'active' && (
-                                     <div className="absolute top-0 right-0 bg-quicksand text-royalblue text-xs font-bold px-3 py-1 rounded-bl-xl">
+                                     <div className="absolute top-0 right-0 bg-quicksand text-royalblue text-xs font-bold px-3 py-1 rounded-bl-xl shadow-md">
                                          RECOMMENDED
                                      </div>
                                  )}
@@ -341,11 +351,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                             value={affiliateId}
                                             onChange={(e) => setAffiliateId(e.target.value)}
                                             placeholder="e.g. mixologist-21"
-                                            className="flex-1 bg-sapphire/20 border border-sapphire/50 rounded-lg px-3 py-2 text-swanwing focus:border-quicksand outline-none"
+                                            className="flex-1 bg-sapphire/20 border border-sapphire/50 rounded-lg px-3 py-2 text-swanwing focus:border-quicksand outline-none transition-colors"
                                          />
                                          <button 
                                             onClick={handleAffiliateSave}
-                                            className="px-4 py-2 bg-quicksand text-royalblue font-bold rounded-lg hover:bg-quicksand/90"
+                                            className="px-4 py-2 bg-quicksand text-royalblue font-bold rounded-lg hover:bg-quicksand/90 transition-colors"
                                          >
                                             Save
                                          </button>
@@ -382,59 +392,51 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
 
          {activeTab === 'notifications' && (
              <div className="animate-fade-in max-w-2xl mx-auto">
-                 <div className="bg-sapphire/10 p-6 rounded-xl border border-sapphire/30">
+                 <div className="bg-sapphire/10 p-6 rounded-2xl border border-sapphire/30">
                      <h3 className="text-xl font-serif font-bold text-swanwing mb-6 flex items-center gap-2">
                          <Mail size={20} className="text-quicksand" /> Email Notifications
                      </h3>
                      
                      <div className="space-y-4">
-                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-lg border border-sapphire/20">
+                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-xl border border-sapphire/20 transition-all hover:border-sapphire/40">
                              <div>
                                  <h4 className="font-bold text-swanwing text-sm">Weekly Digest</h4>
                                  <p className="text-xs text-shellstone">Get a summary of trending cocktails and tips.</p>
                              </div>
-                             <div 
-                                onClick={() => handleNotificationToggle('newsletter')}
-                                className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${notifications.newsletter ? 'bg-quicksand' : 'bg-sapphire/30'}`}
-                             >
-                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.newsletter ? 'left-7' : 'left-1'}`}></div>
-                             </div>
+                             <ToggleSwitch 
+                                active={notifications.newsletter} 
+                                onClick={() => handleNotificationToggle('newsletter')} 
+                             />
                          </div>
 
-                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-lg border border-sapphire/20">
+                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-xl border border-sapphire/20 transition-all hover:border-sapphire/40">
                              <div>
                                  <h4 className="font-bold text-swanwing text-sm">New Feature Alerts</h4>
                                  <p className="text-xs text-shellstone">Be the first to know about new AI capabilities.</p>
                              </div>
-                             <div 
-                                onClick={() => handleNotificationToggle('newFeatures')}
-                                className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${notifications.newFeatures ? 'bg-quicksand' : 'bg-sapphire/30'}`}
-                             >
-                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.newFeatures ? 'left-7' : 'left-1'}`}></div>
-                             </div>
+                             <ToggleSwitch 
+                                active={notifications.newFeatures} 
+                                onClick={() => handleNotificationToggle('newFeatures')} 
+                             />
                          </div>
 
-                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-lg border border-sapphire/20">
+                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-xl border border-sapphire/20 transition-all hover:border-sapphire/40">
                              <div>
                                  <h4 className="font-bold text-swanwing text-sm">Partner Offers</h4>
                                  <p className="text-xs text-shellstone">Exclusive deals on spirits and glassware.</p>
                              </div>
-                             <div 
-                                onClick={() => handleNotificationToggle('partnerOffers')}
-                                className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${notifications.partnerOffers ? 'bg-quicksand' : 'bg-sapphire/30'}`}
-                             >
-                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.partnerOffers ? 'left-7' : 'left-1'}`}></div>
-                             </div>
+                             <ToggleSwitch 
+                                active={notifications.partnerOffers} 
+                                onClick={() => handleNotificationToggle('partnerOffers')} 
+                             />
                          </div>
 
-                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-lg border border-sapphire/20 opacity-80">
+                         <div className="flex items-center justify-between p-4 bg-royalblue rounded-xl border border-sapphire/20 opacity-70">
                              <div>
                                  <h4 className="font-bold text-swanwing text-sm">Security Alerts</h4>
                                  <p className="text-xs text-shellstone">Important account security notifications (Always On).</p>
                              </div>
-                             <div className="w-12 h-6 rounded-full bg-emerald-500/50 relative cursor-not-allowed">
-                                 <div className="absolute top-1 left-7 w-4 h-4 bg-white/50 rounded-full"></div>
-                             </div>
+                             <ToggleSwitch active={true} disabled={true} />
                          </div>
                      </div>
                  </div>
@@ -443,7 +445,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
 
          {activeTab === 'settings' && (
              <div className="animate-fade-in max-w-2xl mx-auto">
-                 <div className="bg-sapphire/10 p-6 rounded-xl border border-sapphire/30 mb-6">
+                 <div className="bg-sapphire/10 p-6 rounded-2xl border border-sapphire/30 mb-6">
                      <div className="flex justify-between items-center mb-6 border-b border-sapphire/30 pb-4">
                         <h3 className="font-bold text-swanwing">Profile Details</h3>
                         {!isEditing ? (
@@ -463,7 +465,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                 value={isEditing ? editName : user.name} 
                                 readOnly={!isEditing}
                                 onChange={(e) => setEditName(e.target.value)}
-                                className={`w-full bg-royalblue border rounded p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
+                                className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />
                          </div>
                          <div>
@@ -473,16 +475,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                 value={isEditing ? editEmail : user.email} 
                                 readOnly={!isEditing}
                                 onChange={(e) => setEditEmail(e.target.value)}
-                                className={`w-full bg-royalblue border rounded p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
+                                className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />
                          </div>
                          {isEditing && (
-                             <div>
+                             <div className="animate-fade-in">
                                  <label className="text-xs text-shellstone uppercase font-bold">New Password</label>
                                  <input 
                                     type="password" 
                                     placeholder="Leave blank to keep current"
-                                    className="w-full bg-royalblue border border-quicksand rounded p-3 text-sm text-swanwing mt-1 shadow-lg" 
+                                    className="w-full bg-royalblue border border-quicksand rounded-xl p-3 text-sm text-swanwing mt-1 shadow-lg" 
                                  />
                              </div>
                          )}
@@ -494,7 +496,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                 readOnly={!isEditing}
                                 onChange={(e) => onUpdateProfile({ phoneNumber: e.target.value })}
                                 placeholder="+44"
-                                className={`w-full bg-royalblue border rounded p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
+                                className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />
                          </div>
                          <div>
@@ -505,7 +507,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                                 readOnly={!isEditing}
                                 onChange={(e) => onUpdateProfile({ address: e.target.value })}
                                 placeholder="Street Address"
-                                className={`w-full bg-royalblue border rounded p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
+                                className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />
                          </div>
                      </div>

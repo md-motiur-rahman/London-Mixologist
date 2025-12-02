@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, Check, Mail } from 'lucide-react';
+import { Share2, Check, Mail, Copy } from 'lucide-react';
 
 interface SocialShareProps {
   title?: string;
@@ -16,18 +16,14 @@ export const SocialShare: React.FC<SocialShareProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleShare = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent bubbling
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     
     if (navigator.share) {
       try {
-        await navigator.share({
-          title,
-          text,
-          url,
-        });
+        await navigator.share({ title, text, url });
       } catch (error) {
-        // User cancelled or error
+        // User cancelled share
       }
     } else {
       try {
@@ -48,23 +44,27 @@ export const SocialShare: React.FC<SocialShareProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`inline-flex items-center bg-sapphire/20 backdrop-blur-md rounded-full border border-sapphire/30 p-1 shadow-sm transition-all hover:shadow-quicksand/10 hover:border-quicksand/30 ${className}`}>
+        {/* Main Share / Copy Button */}
         <button
-          onClick={handleShare}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full bg-sapphire/20 hover:bg-quicksand hover:text-royalblue border border-sapphire/30 text-xs font-bold text-shellstone transition-all active:scale-95 shadow-sm hover:shadow-quicksand/20 ${className}`}
-          title="Share"
+          onClick={handleCopyLink}
+          className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-quicksand hover:text-royalblue text-xs font-bold text-shellstone transition-all duration-300 group"
+          title="Share or Copy Link"
         >
-          {copied ? <Check size={16} /> : <Share2 size={16} />}
-          <span className="hidden sm:inline">{copied ? 'Copied Link' : 'Share'}</span>
+          {copied ? <Check size={14} className="text-emerald-400 group-hover:text-royalblue" /> : <Share2 size={14} />}
+          <span className="hidden sm:inline">{copied ? 'Copied' : 'Share'}</span>
           <span className="sm:hidden">{copied ? 'Copied' : 'Share'}</span>
         </button>
 
+        <div className="w-px h-4 bg-sapphire/30 mx-1"></div>
+
+        {/* Email Button */}
         <button
           onClick={handleEmailShare}
-          className={`p-2 rounded-full bg-sapphire/20 hover:bg-quicksand hover:text-royalblue border border-sapphire/30 text-shellstone transition-all active:scale-95 shadow-sm hover:shadow-quicksand/20 ${className}`}
+          className="p-2 rounded-full hover:bg-quicksand hover:text-royalblue text-shellstone transition-all duration-300"
           title="Share via Email"
         >
-          <Mail size={16} />
+          <Mail size={14} />
         </button>
     </div>
   );
