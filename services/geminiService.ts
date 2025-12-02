@@ -40,7 +40,8 @@ const RECIPE_SCHEMA = {
 
 export const generateCocktailRecipe = async (inputs: string, preferences: string): Promise<CocktailRecipe> => {
   checkApiKey();
-  const model = "gemini-2.5-flash";
+  // Use Pro model for complex reasoning and better recipes
+  const model = "gemini-3-pro-preview";
   
   const prompt = `Create a unique, London-inspired or classic cocktail recipe based on these ingredients: ${inputs}. 
   User preferences: ${preferences}.
@@ -74,6 +75,7 @@ export const generateCocktailRecipe = async (inputs: string, preferences: string
 
 export const getShoppingSuggestions = async (item: string, location: string): Promise<ShoppingRecommendation> => {
   checkApiKey();
+  // Flash is sufficient for fast search/lookup tasks
   const model = "gemini-2.5-flash";
   
   const prompt = `I am in ${location}. Where can I buy ${item}? 
@@ -126,7 +128,8 @@ export const getShoppingSuggestions = async (item: string, location: string): Pr
 
 export const generatePartyGame = async (players: string, vibe: string, supplies: string): Promise<PartyGameSuggestion> => {
   checkApiKey();
-  const model = "gemini-2.5-flash";
+  // Pro model for better creativity in game design
+  const model = "gemini-3-pro-preview";
 
   const prompt = `Create a fun, creative drinking game or party game based on the following parameters:
   - Number of Players: ${players}
@@ -169,7 +172,8 @@ export const generatePartyGame = async (players: string, vibe: string, supplies:
 
 export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDiceResult> => {
   checkApiKey();
-  const model = "gemini-2.5-flash";
+  // Pro model for better nuance and context adherence
+  const model = "gemini-3-pro-preview";
 
   const prompt = `Generate a romantic or spicy "sex dice" result for a couple. 
   Intensity Level: ${intensity}.
@@ -217,18 +221,26 @@ export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDic
 
 export const generateSpicyIllustration = async (action: string, detail: string): Promise<string> => {
   checkApiKey();
-  const model = "gemini-2.5-flash-image";
+  // Use Pro Image model for higher quality
+  const model = "gemini-3-pro-image-preview";
 
-  const prompt = `Create a cute, minimalist, tasteful line-art cartoon illustration of a couple. 
-  Concept: Romantic couple doing ${action} near ${detail}.
-  Style: Simple black outline drawing on white background. Abstract, artistic, stick-figure style or simple vector art. 
-  NO NUDITY. Keep it playful, heartwarming and romantic. High quality sketch.`;
+  const prompt = `Create a high-quality, artistic line-art or minimalist illustration.
+  Subject: A romantic couple depicting ${action} involving ${detail}.
+  Style: Elegant, tasteful, continuous line drawing, black ink on white background. Abstract, artistic, simple vector art style.
+  Mood: Playful, romantic, intimate but safe for work (NO NUDITY).
+  Quality: Professional, clean lines.`;
 
   try {
     const response = await ai.models.generateContent({
       model,
       contents: {
         parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K"
+        }
       }
     });
 
@@ -249,17 +261,17 @@ export const generateSpicyIllustration = async (action: string, detail: string):
 
 export const analyzeImageForRecipe = async (base64Image: string): Promise<CocktailRecipe> => {
   checkApiKey();
+  // Flash is multimodal and highly efficient for this, but prompt needs to be rigorous
   const model = "gemini-2.5-flash";
 
-  const prompt = `Look at this image of bottles and ingredients. 
-  1. Identify the alcohol, mixers, and other ingredients present.
-  2. Create the BEST possible cocktail recipe using ONLY what you see (plus basic staples like sugar/lemon/ice).
-  3. Identify 3-4 missing items (Recommended Products) that would upgrade this drink significantly.
-     - Is the user missing a specific garnish?
-     - Would a specific type of glass make it better?
-     - Is there a specific tool (muddler, strainer) needed?
-  4. Return a JSON recipe object.
-  `;
+  const prompt = `Role: Expert Mixologist with eagle-eyed vision.
+  Task:
+  1. ANALYZE the image to identify every visible alcohol brand, mixer, fruit, and bar tool. Be specific (e.g. 'Hendrick's Gin' instead of just 'Gin' if visible).
+  2. SELECT the SINGLE BEST cocktail that can be made primarily with these detected ingredients plus basic pantry staples (ice, sugar, lemon/lime).
+  3. CREATE a detailed JSON recipe for this cocktail.
+  4. RECOMMEND exactly 3 missing items (ingredients/tools/glassware) that would significantly elevate this specific drink.
+
+  Return the result strictly as the requested JSON object.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -287,18 +299,25 @@ export const analyzeImageForRecipe = async (base64Image: string): Promise<Cockta
 
 export const generateCocktailImage = async (recipeName: string, description: string): Promise<string> => {
   checkApiKey();
-  const model = "gemini-2.5-flash-image"; 
+  // Use Pro Image model for 4K/high-res generation
+  const model = "gemini-3-pro-image-preview";
 
-  const prompt = `A professional, photorealistic 4k close-up photograph of a ${recipeName} cocktail. 
+  const prompt = `Professional food photography, 8k resolution, macro lens shot of a ${recipeName} cocktail. 
   Description: ${description}. 
   Setting: A dimly lit, sophisticated London speakeasy bar with moody lighting and elegant glassware. 
-  The drink looks delicious and refreshing.`;
+  Details: Crystal clear glass, condensation, perfect garnish, hyper-realistic, cinematic lighting.`;
 
   try {
     const response = await ai.models.generateContent({
       model,
       contents: {
         parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K"
+        }
       }
     });
 
