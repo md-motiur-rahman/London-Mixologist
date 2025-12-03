@@ -12,6 +12,7 @@ import { UserDashboard } from './components/UserDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CookiePolicy, Disclaimer, PrivacyPolicy, TermsAndConditions } from './components/LegalPages';
 import { AppView, UserProfile, SavedRecipe, CocktailRecipe } from './types';
+import { supabase, mapSupabaseUserToProfile } from './services/supabaseClient';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
@@ -19,19 +20,45 @@ function App() {
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
-  // User State - Default to null (logged out)
+  // User State
   const [user, setUser] = useState<UserProfile | null>(null);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
 
   // Scroll Ref
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top on view change for smooth UX
   useLayoutEffect(() => {
     if (mainContentRef.current) {
         mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentView]);
+
+  // Fetch Recipes function
+  const fetchRecipes = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .order('date_created', { ascending: false });
+
+    if (!error && data) {
+       // Map snake_case database fields to camelCase types
+       const mapped: SavedRecipe[] = data.map(r => ({
+           id: r.id,
+           name: r.name,
+           description: r.description,
+           ingredients: r.ingredients,
+           instructions: r.instructions,
+           glassware: r.glassware,
+           difficulty: r.difficulty,
+           estimatedCostGBP: r.estimated_cost_gbp,
+           recommendedProducts: r.recommended_products,
+           dateCreated: r.date_created
+       }));
+       setSavedRecipes(mapped);
+    } else {
+        console.error("Error fetching recipes:", error);
+    }
+  };
 
   useEffect(() => {
     // Check Age Verification
@@ -39,7 +66,6 @@ function App() {
     if (verified === 'true') {
       setIsAgeVerified(true);
     }
-    setCheckingAuth(false);
 
     // Check Theme Preference
     const storedTheme = localStorage.getItem('london_mixologist_theme');
@@ -51,27 +77,34 @@ function App() {
       document.body.classList.remove('light-mode');
     }
 
-    // Check Stored User
-    const storedUser = localStorage.getItem('london_mixologist_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-
-    // Check Stored Recipes
-    const storedRecipes = localStorage.getItem('london_mixologist_saved_recipes');
-    if (storedRecipes) {
-      setSavedRecipes(JSON.parse(storedRecipes));
-    }
-
-    // Admin URL Check (adminmixlock)
-    if (window.location.hash === '#adminmixlock') {
-        if (user?.role === 'admin') {
-            setCurrentView(AppView.ADMIN);
-        } else {
-            setCurrentView(AppView.PROFILE);
+    // SUPABASE AUTH INITIALIZATION
+    const initAuth = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            const profile = mapSupabaseUserToProfile(session.user);
+            setUser(profile);
+            fetchRecipes(profile.id);
         }
-    }
-  }, [user?.role]);
+        setCheckingAuth(false);
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+            const profile = mapSupabaseUserToProfile(session.user);
+            setUser(profile);
+            // Fetch recipes only if we just logged in (savedRecipes empty or user changed)
+            // But simple way is just fetch always on auth change
+            fetchRecipes(profile.id);
+        } else {
+            setUser(null);
+            setSavedRecipes([]);
+        }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleVerify = () => {
     localStorage.setItem('london_mixologist_age_verified', 'true');
@@ -91,8 +124,8 @@ function App() {
   };
 
   const handleLogin = (newUser: UserProfile) => {
+    // Auth state change listener handles this mostly, but this forces view update
     setUser(newUser);
-    localStorage.setItem('london_mixologist_user', JSON.stringify(newUser));
     if (newUser.role === 'admin' && window.location.hash === '#adminmixlock') {
         setCurrentView(AppView.ADMIN);
     } else {
@@ -100,9 +133,8 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('london_mixologist_user');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentView(AppView.DASHBOARD);
   };
 
@@ -110,22 +142,34 @@ function App() {
       if (!user) return;
       const newUser = { ...user, ...updated };
       setUser(newUser);
-      localStorage.setItem('london_mixologist_user', JSON.stringify(newUser));
+      // Actual database updates handled in UserDashboard component via supabase calls
   };
 
-  const handleSaveRecipe = (recipe: CocktailRecipe) => {
+  const handleSaveRecipe = async (recipe: CocktailRecipe) => {
     if (!user) {
       setCurrentView(AppView.PROFILE);
       return;
     }
-    const newSavedRecipe: SavedRecipe = {
-      ...recipe,
-      id: Math.random().toString(36).substr(2, 9),
-      dateCreated: new Date().toISOString()
-    };
-    const updatedRecipes = [newSavedRecipe, ...savedRecipes];
-    setSavedRecipes(updatedRecipes);
-    localStorage.setItem('london_mixologist_saved_recipes', JSON.stringify(updatedRecipes));
+
+    const { data, error } = await supabase.from('recipes').insert({
+        user_id: user.id,
+        name: recipe.name,
+        description: recipe.description,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        glassware: recipe.glassware,
+        difficulty: recipe.difficulty,
+        estimated_cost_gbp: recipe.estimatedCostGBP,
+        recommended_products: recipe.recommendedProducts
+    }).select();
+
+    if (error) {
+        alert("Failed to save recipe: " + error.message);
+    } else if (data) {
+        // Optimistic update or refetch
+        fetchRecipes(user.id);
+        setCurrentView(AppView.PROFILE);
+    }
   };
 
   const renderView = () => {
@@ -167,7 +211,6 @@ function App() {
         );
       case AppView.ADMIN:
         return user?.role === 'admin' ? <AdminDashboard /> : <Dashboard setView={setCurrentView} />;
-      // Legal Pages
       case AppView.COOKIE_POLICY:
         return <CookiePolicy onNavigate={setCurrentView} />;
       case AppView.PRIVACY_POLICY:
@@ -190,7 +233,6 @@ function App() {
     AppView.DISCLAIMER
   ].includes(currentView);
 
-  // STRICT AGE GATE
   if (!isAgeVerified) {
     return (
       <div className="h-screen bg-royalblue text-swanwing font-sans relative overflow-hidden flex flex-col">
@@ -207,8 +249,6 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-royalblue text-swanwing font-sans selection:bg-quicksand selection:text-royalblue overflow-hidden relative transition-colors duration-500">
-      
-      {/* Navigation */}
       <Navigation 
         currentView={currentView} 
         setView={setCurrentView} 
@@ -217,18 +257,14 @@ function App() {
         user={user}
       />
       
-      {/* Main Content Area */}
-      {/* Added ref for scroll control and pt-24 for header spacing */}
       <main 
         ref={mainContentRef}
         className="flex-1 w-full h-full overflow-y-auto relative scroll-smooth bg-royalblue transition-colors duration-500 pt-0 md:pt-24"
       >
-         {/* Ambient Background Lights */}
          <div className="fixed top-[-20%] right-[-10%] w-[600px] h-[600px] bg-quicksand/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
          <div className="fixed bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-sapphire/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
          
          <div className="pb-24 md:pb-0 min-h-full relative z-10">
-           {/* Key prop ensures the animation replays when view changes */}
            <div key={currentView} className="animate-fade-in">
               {renderView()}
            </div>
