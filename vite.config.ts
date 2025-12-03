@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       // Expose API_KEY to the client-side code as process.env.API_KEY
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      // Uses the provided key if no environment variable is found
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || 'AIzaSyAC3sdJmYQOVJgxLznAud6wk7HSwz9JYQE'),
     }
   };
 });
