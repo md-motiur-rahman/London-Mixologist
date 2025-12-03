@@ -15,16 +15,29 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [fullName, setFullName] = useState('');
 
-  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+  const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
+    setError('');
+    
+    // Uses window.location.origin to ensure the user is redirected back to the current domain
+    // You must add this domain to "Redirect URLs" in your Supabase Dashboard -> Authentication -> URL Configuration
     const { error } = await supabase.auth.signInWithOAuth({
       provider: provider,
+      options: {
+        redirectTo: `${window.location.origin}`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
     });
+    
     if (error) {
       setError(error.message);
       setLoading(false);
     }
-    // Redirect happens automatically
+    // Note: If successful, the browser redirects immediately, so setLoading(false) isn't strictly necessary 
+    // but good for cleanup if the redirect is slow.
   };
 
   const handleStandardAuth = async (e: React.FormEvent) => {

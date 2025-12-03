@@ -1,8 +1,18 @@
 import { createClient, User } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
 
-const supabaseUrl = 'https://ktwsxsiffczcxxiauxby.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0d3N4c2lmZmN6Y3h4aWF1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTcxNDksImV4cCI6MjA4MDMzMzE0OX0.AxiNNilaWEEezvMkhPZZ6o67u_G5eWBvpIbX-hO7znw';
+// Safely handle environment variables with fallbacks to prevent runtime errors
+const getEnvVar = (key: string) => {
+  try {
+    // Cast import.meta to any to avoid TypeScript errors regarding ImportMeta type definition
+    return (import.meta as any).env?.[key];
+  } catch {
+    return undefined;
+  }
+};
+
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL') || 'https://ktwsxsiffczcxxiauxby.supabase.co';
+const supabaseKey = getEnvVar('VITE_SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0d3N4c2lmZmN6Y3h4aWF1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTcxNDksImV4cCI6MjA4MDMzMzE0OX0.AxiNNilaWEEezvMkhPZZ6o67u_G5eWBvpIbX-hO7znw';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
