@@ -64,49 +64,130 @@ const SHARE_VARIATIONS = [
   (name: string) => `${name} created this custom cocktail and thinks you deserve a taste! They're on stand-by to pour you one. 🧊`
 ];
 
-// Curated cocktail images from Unsplash
-const COCKTAIL_IMAGES = [
-  'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&h=600&fit=crop', // Classic cocktail
-  'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=800&h=600&fit=crop', // Colorful cocktail
-  'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=800&h=600&fit=crop', // Whiskey cocktail
-  'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=800&h=600&fit=crop', // Bar cocktail
-  'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=800&h=600&fit=crop', // Elegant cocktail
-  'https://images.unsplash.com/photo-1587223962930-cb7f31384c19?w=800&h=600&fit=crop', // Martini style
-  'https://images.unsplash.com/photo-1560512823-829485b8bf24?w=800&h=600&fit=crop', // Tropical cocktail
-  'https://images.unsplash.com/photo-1582837403612-c3e0f1d11e8e?w=800&h=600&fit=crop', // Dark cocktail
-  'https://images.unsplash.com/photo-1541546006121-5c3bc5e8c7b9?w=800&h=600&fit=crop', // Gin cocktail
-  'https://images.unsplash.com/photo-1605270012917-bf157c5a9541?w=800&h=600&fit=crop', // Citrus cocktail
-  'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&h=600&fit=crop', // Mojito style
-  'https://images.unsplash.com/photo-1571950006920-a6a8e1a2c1f1?w=800&h=600&fit=crop', // Negroni style
-];
+// Cocktail color themes based on ingredients
+interface CocktailTheme {
+  gradient: string;
+  accent: string;
+  icon: string;
+}
 
-// Get cocktail image based on recipe
-const getCocktailImageUrl = (recipeName: string, ingredients: string[]): string => {
-  const darkIndices = [2, 7]; // whiskey, dark
-  const citrusIndices = [6, 9, 10]; // tropical, citrus, mojito
-  const elegantIndices = [0, 4, 5, 11]; // classic, elegant, martini, negroni
-  const colorfulIndices = [1, 3, 8]; // colorful, bar, gin
-  
-  let imageIndices = elegantIndices;
+const COCKTAIL_THEMES: Record<string, CocktailTheme> = {
+  dark: {
+    gradient: 'from-amber-900 via-amber-800 to-stone-900',
+    accent: 'bg-amber-500/20',
+    icon: '🥃'
+  },
+  citrus: {
+    gradient: 'from-yellow-500 via-orange-400 to-lime-500',
+    accent: 'bg-yellow-400/20',
+    icon: '🍋'
+  },
+  tropical: {
+    gradient: 'from-pink-500 via-orange-400 to-yellow-400',
+    accent: 'bg-pink-400/20',
+    icon: '🍹'
+  },
+  berry: {
+    gradient: 'from-purple-600 via-pink-500 to-red-500',
+    accent: 'bg-purple-400/20',
+    icon: '🍇'
+  },
+  mint: {
+    gradient: 'from-emerald-500 via-teal-400 to-cyan-400',
+    accent: 'bg-emerald-400/20',
+    icon: '🌿'
+  },
+  classic: {
+    gradient: 'from-slate-700 via-slate-600 to-slate-800',
+    accent: 'bg-slate-400/20',
+    icon: '🍸'
+  },
+  creamy: {
+    gradient: 'from-amber-200 via-orange-100 to-yellow-100',
+    accent: 'bg-amber-200/30',
+    icon: '🥛'
+  },
+  blue: {
+    gradient: 'from-blue-600 via-cyan-500 to-teal-400',
+    accent: 'bg-blue-400/20',
+    icon: '💎'
+  },
+  red: {
+    gradient: 'from-red-600 via-rose-500 to-pink-500',
+    accent: 'bg-red-400/20',
+    icon: '🍒'
+  },
+  golden: {
+    gradient: 'from-yellow-600 via-amber-500 to-orange-500',
+    accent: 'bg-yellow-500/20',
+    icon: '✨'
+  }
+};
+
+// Get cocktail theme based on ingredients
+const getCocktailTheme = (ingredients: string[]): CocktailTheme => {
   const ingredientsLower = ingredients.map(i => i.toLowerCase()).join(' ');
   
+  // Dark spirits
   if (ingredientsLower.includes('whiskey') || ingredientsLower.includes('bourbon') || 
-      ingredientsLower.includes('cola') || ingredientsLower.includes('coffee') ||
-      ingredientsLower.includes('brandy')) {
-    imageIndices = darkIndices;
-  } else if (ingredientsLower.includes('lime') || ingredientsLower.includes('lemon') || 
-             ingredientsLower.includes('orange') || ingredientsLower.includes('mint') ||
-             ingredientsLower.includes('tropical') || ingredientsLower.includes('pineapple')) {
-    imageIndices = citrusIndices;
-  } else if (ingredientsLower.includes('gin') || ingredientsLower.includes('vodka') ||
-             ingredientsLower.includes('cranberry') || ingredientsLower.includes('blue')) {
-    imageIndices = colorfulIndices;
+      ingredientsLower.includes('brandy') || ingredientsLower.includes('cognac') ||
+      ingredientsLower.includes('dark rum') || ingredientsLower.includes('cola') ||
+      ingredientsLower.includes('coffee') || ingredientsLower.includes('kahlua')) {
+    return COCKTAIL_THEMES.dark;
   }
   
-  const seed = recipeName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const selectedIndex = imageIndices[seed % imageIndices.length];
+  // Blue cocktails
+  if (ingredientsLower.includes('blue curacao') || ingredientsLower.includes('blue')) {
+    return COCKTAIL_THEMES.blue;
+  }
   
-  return COCKTAIL_IMAGES[selectedIndex];
+  // Berry/Red cocktails
+  if (ingredientsLower.includes('cranberry') || ingredientsLower.includes('raspberry') ||
+      ingredientsLower.includes('strawberry') || ingredientsLower.includes('grenadine') ||
+      ingredientsLower.includes('cherry') || ingredientsLower.includes('campari')) {
+    return COCKTAIL_THEMES.red;
+  }
+  
+  // Creamy cocktails
+  if (ingredientsLower.includes('cream') || ingredientsLower.includes('baileys') ||
+      ingredientsLower.includes('milk') || ingredientsLower.includes('coconut cream')) {
+    return COCKTAIL_THEMES.creamy;
+  }
+  
+  // Mint/Green cocktails
+  if (ingredientsLower.includes('mint') || ingredientsLower.includes('creme de menthe') ||
+      ingredientsLower.includes('midori') || ingredientsLower.includes('chartreuse')) {
+    return COCKTAIL_THEMES.mint;
+  }
+  
+  // Tropical cocktails
+  if (ingredientsLower.includes('pineapple') || ingredientsLower.includes('mango') ||
+      ingredientsLower.includes('passion') || ingredientsLower.includes('coconut') ||
+      ingredientsLower.includes('rum')) {
+    return COCKTAIL_THEMES.tropical;
+  }
+  
+  // Citrus cocktails
+  if (ingredientsLower.includes('lime') || ingredientsLower.includes('lemon') || 
+      ingredientsLower.includes('orange') || ingredientsLower.includes('grapefruit') ||
+      ingredientsLower.includes('citrus')) {
+    return COCKTAIL_THEMES.citrus;
+  }
+  
+  // Golden/Champagne cocktails
+  if (ingredientsLower.includes('champagne') || ingredientsLower.includes('prosecco') ||
+      ingredientsLower.includes('sparkling') || ingredientsLower.includes('elderflower')) {
+    return COCKTAIL_THEMES.golden;
+  }
+  
+  // Berry liqueurs
+  if (ingredientsLower.includes('cassis') || ingredientsLower.includes('chambord') ||
+      ingredientsLower.includes('sloe')) {
+    return COCKTAIL_THEMES.berry;
+  }
+  
+  // Default classic
+  return COCKTAIL_THEMES.classic;
 };
 
 // --- Helper Components ---
@@ -289,10 +370,11 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
   // New state for share text
   const [shareText, setShareText] = useState('');
   
-  // State for AI-generated cocktail image
-  const [cocktailImage, setCocktailImage] = useState<string>('');
-  const [imageLoading, setImageLoading] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  // State for cocktail theme (gradient-based, no external images)
+  const [cocktailTheme, setCocktailTheme] = useState<CocktailTheme | null>(null);
+
+  // Ref for scrolling to recipe on mobile
+  const recipeRef = useRef<HTMLDivElement>(null);
 
   // Derived state for filtered MultiSelects
   const alcoholSelected = selectedIngredients.filter(i => FLAT_ALCOHOL.includes(i));
@@ -340,8 +422,7 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
     setLoading(true);
     setRecipe(null);
     setSaved(false);
-    setCocktailImage('');
-    setImageError(false);
+    setCocktailTheme(null);
     
     try {
       const result = await generateCocktailRecipe(inputQuery, preferenceQuery);
@@ -352,9 +433,19 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
       const randomMsg = SHARE_VARIATIONS[Math.floor(Math.random() * SHARE_VARIATIONS.length)](userName);
       setShareText(randomMsg);
 
-      // Get cocktail image URL based on recipe
-      const imageUrl = getCocktailImageUrl(result.name, result.ingredients);
-      setCocktailImage(imageUrl);
+      // Get cocktail theme based on ingredients (gradient-based, no external images)
+      const theme = getCocktailTheme(result.ingredients);
+      setCocktailTheme(theme);
+
+      // Scroll to recipe on mobile after a short delay to allow render
+      setTimeout(() => {
+        if (recipeRef.current && window.innerWidth < 1280) { // xl breakpoint
+          recipeRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start'
+          });
+        }
+      }, 100);
 
     } catch (e) {
       console.error(e);
@@ -625,30 +716,23 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
 
           {/* Result Section */}
           {recipe && (
-            <div className="animate-fade-in flex flex-col h-full sticky top-4">
+            <div ref={recipeRef} className="animate-fade-in flex flex-col h-full xl:sticky xl:top-4 scroll-mt-20">
               <div className="relative h-48 md:h-72 w-full rounded-t-2xl overflow-hidden shadow-2xl border-t border-x border-sapphire/30 group">
-                {/* Cocktail Image */}
-                {cocktailImage && !imageError ? (
-                  <img 
-                      src={cocktailImage}
-                      alt={`${recipe.name} cocktail`}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-sapphire/40 to-royalblue relative">
-                    {/* Fallback decorative background */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <Martini className="text-quicksand/30 mx-auto mb-2" size={64} />
-                        <span className="text-quicksand/50 text-sm font-bold">{recipe.name}</span>
-                      </div>
+                {/* Cocktail Theme Background - Gradient based on ingredients */}
+                <div className={`w-full h-full bg-gradient-to-br ${cocktailTheme?.gradient || 'from-sapphire/40 to-royalblue'} relative transition-all duration-500`}>
+                  {/* Decorative background elements */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center transform group-hover:scale-110 transition-transform duration-500">
+                      <span className="text-7xl md:text-8xl drop-shadow-lg filter">{cocktailTheme?.icon || '🍸'}</span>
                     </div>
-                    {/* Decorative elements */}
-                    <div className="absolute top-4 right-4 w-20 h-20 bg-quicksand/10 rounded-full blur-xl"></div>
-                    <div className="absolute bottom-8 left-8 w-32 h-32 bg-sapphire/20 rounded-full blur-2xl"></div>
                   </div>
-                )}
+                  {/* Animated decorative elements */}
+                  <div className={`absolute top-4 right-4 w-24 h-24 ${cocktailTheme?.accent || 'bg-quicksand/10'} rounded-full blur-2xl animate-pulse`}></div>
+                  <div className={`absolute bottom-8 left-8 w-32 h-32 ${cocktailTheme?.accent || 'bg-sapphire/20'} rounded-full blur-3xl animate-pulse`} style={{ animationDelay: '1s' }}></div>
+                  <div className={`absolute top-1/2 left-1/4 w-16 h-16 ${cocktailTheme?.accent || 'bg-white/5'} rounded-full blur-xl animate-pulse`} style={{ animationDelay: '0.5s' }}></div>
+                  {/* Glass reflection effect */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent"></div>
+                </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-royalblue via-transparent to-transparent"></div>
                 
                 {/* Save Button */}

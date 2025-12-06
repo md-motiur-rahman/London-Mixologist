@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { analyzeImageForRecipe, generateCocktailImage } from '../services/geminiService';
+import { analyzeImageForRecipe, getCocktailTheme, CocktailTheme } from '../services/geminiService';
 import { CocktailRecipe, UserProfile } from '../types';
 import { Loader2, Camera, RefreshCw, Wand2, Wine, ShoppingCart, ExternalLink, Martini, Sparkles, Citrus, Lock } from 'lucide-react';
 import { SubscriptionModal } from './SubscriptionModal';
@@ -21,9 +21,9 @@ const SHARE_VARIATIONS = [
 export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscribe }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState<'idle' | 'analyzing' | 'dreaming' | 'complete'>('idle');
+  const [stage, setStage] = useState<'idle' | 'analyzing' | 'complete'>('idle');
   const [recipe, setRecipe] = useState<CocktailRecipe | null>(null);
-  const [generatedVisual, setGeneratedVisual] = useState<string | null>(null);
+  const [cocktailTheme, setCocktailTheme] = useState<CocktailTheme | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [shareText, setShareText] = useState('');
   
@@ -36,7 +36,7 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
       reader.onloadend = () => {
         setSelectedImage(reader.result as string);
         setRecipe(null);
-        setGeneratedVisual(null);
+        setCocktailTheme(null);
         setStage('idle');
       };
       reader.readAsDataURL(file);
@@ -61,10 +61,9 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
       const recipeResult = await analyzeImageForRecipe(base64Data);
       setRecipe(recipeResult);
 
-      // Step 2: Generate Visual of the Result (Image Gen)
-      setStage('dreaming');
-      const visualBase64 = await generateCocktailImage(recipeResult.name, recipeResult.description);
-      setGeneratedVisual(`data:image/png;base64,${visualBase64}`);
+      // Step 2: Get cocktail theme based on ingredients (gradient-based, no external images)
+      const theme = getCocktailTheme(recipeResult.ingredients);
+      setCocktailTheme(theme);
       
       setStage('complete');
 
@@ -183,22 +182,30 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
         <div className="space-y-6">
             {stage === 'complete' && recipe && (
                 <div className="animate-fade-in space-y-6">
-                    {/* Generated Visual */}
-                    {generatedVisual ? (
-                        <div className="relative w-full aspect-square md:aspect-video rounded-2xl overflow-hidden shadow-2xl border border-quicksand/50 group">
-                            <img src={generatedVisual} alt={recipe.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
-                                <span className="text-xs font-bold text-quicksand uppercase tracking-wider bg-black/50 px-2 py-1 rounded border border-quicksand/30">
-                                    AI Generated Visualization
-                                </span>
-                                <SocialShare title={`Tipsy Vision: ${recipe.name}`} text={shareText || `My AI created this amazing ${recipe.name} recipe!`} className="bg-black/50 hover:bg-quicksand text-white" />
+                    {/* Generated Visual - Gradient Theme */}
+                    <div className="relative w-full aspect-square md:aspect-video rounded-2xl overflow-hidden shadow-2xl border border-quicksand/50 group">
+                        {/* Gradient Background based on cocktail theme */}
+                        <div className={`w-full h-full bg-gradient-to-br ${cocktailTheme?.gradient || 'from-sapphire/40 to-royalblue'} relative transition-all duration-500`}>
+                          {/* Decorative background elements */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center transform group-hover:scale-110 transition-transform duration-500">
+                              <span className="text-8xl md:text-9xl drop-shadow-lg filter">{cocktailTheme?.icon || '🍸'}</span>
                             </div>
+                          </div>
+                          {/* Animated decorative elements */}
+                          <div className={`absolute top-4 right-4 w-24 h-24 ${cocktailTheme?.accent || 'bg-quicksand/10'} rounded-full blur-2xl animate-pulse`}></div>
+                          <div className={`absolute bottom-8 left-8 w-32 h-32 ${cocktailTheme?.accent || 'bg-sapphire/20'} rounded-full blur-3xl animate-pulse`} style={{ animationDelay: '1s' }}></div>
+                          <div className={`absolute top-1/2 left-1/4 w-16 h-16 ${cocktailTheme?.accent || 'bg-white/5'} rounded-full blur-xl animate-pulse`} style={{ animationDelay: '0.5s' }}></div>
+                          {/* Glass reflection effect */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent"></div>
                         </div>
-                    ) : (
-                        <div className="w-full aspect-video bg-sapphire/20 rounded-2xl animate-pulse flex items-center justify-center">
-                            <span className="text-shellstone">Generating Image...</span>
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
+                            <span className="text-xs font-bold text-quicksand uppercase tracking-wider bg-black/50 px-2 py-1 rounded border border-quicksand/30">
+                                AI Recipe Visualization
+                            </span>
+                            <SocialShare title={`Tipsy Vision: ${recipe.name}`} text={shareText || `My AI created this amazing ${recipe.name} recipe!`} className="bg-black/50 hover:bg-quicksand text-white" />
                         </div>
-                    )}
+                    </div>
 
                     {/* Recipe Details */}
                     <div className="bg-sapphire/10 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-sapphire/30 shadow-xl">
@@ -277,7 +284,7 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
                         onClick={() => {
                             setSelectedImage(null);
                             setRecipe(null);
-                            setGeneratedVisual(null);
+                            setCocktailTheme(null);
                             setStage('idle');
                         }}
                         className="w-full py-3 border border-sapphire text-shellstone rounded-xl hover:bg-sapphire/20 hover:text-swanwing transition-colors flex items-center justify-center gap-2"

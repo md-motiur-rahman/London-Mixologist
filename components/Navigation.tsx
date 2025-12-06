@@ -47,8 +47,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, is
                 className="flex items-center gap-2.5 cursor-pointer group"
                 onClick={() => handleMobileNav(AppView.DASHBOARD)}
             >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 text-base group-hover:scale-105 transition-transform duration-300">
-                    LM
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 group-hover:scale-105 transition-transform duration-300 relative">
+                    <span className="text-xs leading-none">LM</span>
                 </div>
                 <div className="flex flex-col">
                     <span className="font-serif font-bold text-lg text-swanwing leading-none tracking-tight">London</span>
@@ -87,8 +87,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, is
                     className="flex items-center gap-3 cursor-pointer group"
                     onClick={() => handleMobileNav(AppView.DASHBOARD)}
                 >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 text-lg group-hover:scale-105 transition-transform duration-300">
-                        LM
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 group-hover:scale-105 transition-transform duration-300 relative">
+                        <span className="text-sm leading-none">LM</span>
+                        
                     </div>
                     <div className="flex flex-col">
                         <span className="font-serif font-bold text-xl text-swanwing leading-none tracking-tight group-hover:text-quicksand transition-colors">London</span>
@@ -140,8 +141,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, is
                 className="flex items-center gap-4 cursor-pointer group"
                 onClick={() => setView(AppView.DASHBOARD)}
             >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 text-xl group-hover:scale-105 transition-transform duration-300">
-                    LM
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 group-hover:scale-105 transition-transform duration-300 relative">
+                    <span className="text-lg leading-none">LM</span>
                 </div>
                 <div className="flex flex-col">
                     <span className="font-serif font-bold text-2xl text-swanwing leading-none tracking-tight group-hover:text-quicksand transition-colors">London</span>
