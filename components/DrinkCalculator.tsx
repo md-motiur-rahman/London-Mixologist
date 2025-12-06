@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wine, Beer, Martini, Plus, Minus, Info, Droplets, Citrus, ShoppingCart, PoundSterling, X, ChevronDown, Check, GlassWater, PartyPopper, Sparkles, ScrollText, SlidersHorizontal, PieChart } from 'lucide-react';
 import { SocialShare } from './SocialShare';
+import { AppView } from '../types';
 
 type AlcoholCategory = 'Beer' | 'Wine' | 'Spirit' | 'Champagne' | 'No-Alc';
 
@@ -75,7 +76,11 @@ const COCKTAIL_SUGGESTIONS: Record<string, string[]> = {
   'champagne': ['French 75', 'Kir Royale', 'Mimosa']
 };
 
-export const DrinkCalculator: React.FC = () => {
+interface DrinkCalculatorProps {
+  onNavigate?: (view: AppView) => void;
+}
+
+export const DrinkCalculator: React.FC<DrinkCalculatorProps> = ({ onNavigate }) => {
   // Input States
   const [duration, setDuration] = useState(3);
   const [guests, setGuests] = useState({
@@ -647,7 +652,10 @@ export const DrinkCalculator: React.FC = () => {
                     <h3 className="font-bold text-quicksand text-lg">Ready to stock up?</h3>
                     <p className="text-shellstone text-sm">Find local stores or order delivery based on these amounts.</p>
                 </div>
-                <button className="px-6 py-3 bg-quicksand text-royalblue font-bold rounded-xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2 whitespace-nowrap">
+                <button 
+                    onClick={() => onNavigate?.(AppView.SHOPPING)}
+                    className="px-6 py-3 bg-quicksand text-royalblue font-bold rounded-xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2 whitespace-nowrap"
+                >
                     <ShoppingCart size={18} /> Find Stores
                 </button>
             </div>

@@ -204,7 +204,7 @@ function App() {
             />
         );
       case AppView.CALCULATOR:
-        return <DrinkCalculator />;
+        return <DrinkCalculator onNavigate={setCurrentView} />;
       case AppView.GAMES:
         return <PartyGames />;
       case AppView.PROFILE:
@@ -269,7 +269,7 @@ function App() {
       
       <main 
         ref={mainContentRef}
-        className="flex-1 w-full h-full overflow-y-auto relative scroll-smooth bg-royalblue transition-colors duration-500 pt-0 md:pt-24"
+        className="flex-1 w-full h-full overflow-y-auto relative scroll-smooth bg-royalblue transition-colors duration-500 pt-16 md:pt-24"
       >
          <div className="fixed top-[-20%] right-[-10%] w-[600px] h-[600px] bg-quicksand/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
          <div className="fixed bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-sapphire/10 rounded-full blur-[120px] pointer-events-none z-0"></div>

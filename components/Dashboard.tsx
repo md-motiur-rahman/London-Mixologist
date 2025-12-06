@@ -16,9 +16,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto w-full space-y-8 animate-fade-in relative z-10">
       
       {/* Header Section */}
-      <header className="flex flex-col md:flex-row justify-between items-end gap-6 pb-6 border-b border-sapphire/10">
-        <div>
-             <div className="flex items-center gap-2 text-quicksand font-bold uppercase tracking-widest text-xs mb-3">
+      <header className="flex flex-col md:flex-row justify-between md:items-end gap-6 pb-6 border-b border-sapphire/10">
+        <div className="text-center md:text-left">
+             <div className="flex items-center justify-center md:justify-start gap-2 text-quicksand font-bold uppercase tracking-widest text-xs mb-3">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -30,16 +30,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-quicksand via-[#f0dcb0] to-shellstone">Mixologist.</span>
              </h1>
         </div>
-        <div className="flex items-end gap-4">
+        <div className="flex items-center justify-center md:justify-end gap-4">
             <SocialShare title="London Mixologist" text="Mixing drinks the London way." />
             
-            <div className="flex items-center gap-6 bg-sapphire/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/5 shadow-lg">
+            <div className="flex items-center gap-4 md:gap-6 bg-sapphire/10 backdrop-blur-md px-4 md:px-6 py-3 rounded-2xl border border-white/5 shadow-lg">
                 <div className="text-right">
-                    <div className="text-3xl font-serif text-swanwing leading-none">12°C</div>
-                    <div className="text-shellstone text-xs font-bold mt-1">Light Rain</div>
+                    <div className="text-2xl md:text-3xl font-serif text-swanwing leading-none">12°C</div>
+                    <div className="text-shellstone text-[10px] md:text-xs font-bold mt-1">Light Rain</div>
                 </div>
-                <div className="h-10 w-px bg-sapphire/30"></div>
-                <CloudRain size={32} className="text-shellstone" />
+                <div className="h-8 md:h-10 w-px bg-sapphire/30"></div>
+                <CloudRain size={28} className="text-shellstone md:w-8 md:h-8" />
             </div>
         </div>
       </header>

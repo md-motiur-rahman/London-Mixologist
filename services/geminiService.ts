@@ -2,10 +2,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { CocktailRecipe, ShoppingRecommendation, ShoppingLocation, PartyGameSuggestion, SpicyDiceResult } from "../types";
 
 const apiKey = process.env.API_KEY || '';
-if(!apiKey) {
-  alert("API_KEY is not set in environment variables.");
-}
-const ai = new GoogleGenAI({ apiKey });
+
+// Lazy initialization to avoid issues at module load time
+let ai: GoogleGenAI | null = null;
+
+const getAI = (): GoogleGenAI => {
+  if (!ai) {
+    if (!apiKey) {
+      throw new Error("API_KEY is not configured. Please set your Gemini API key.");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+};
 
 const RECIPE_SCHEMA = {
   type: Type.OBJECT,
@@ -25,7 +34,8 @@ const RECIPE_SCHEMA = {
           name: { type: Type.STRING },
           category: { type: Type.STRING, enum: ["Ingredient", "Tool", "Garnish", "Glassware"] },
           reason: { type: Type.STRING }
-        }
+        },
+        required: ["name", "category", "reason"]
       }
     }
   },
@@ -33,7 +43,8 @@ const RECIPE_SCHEMA = {
 };
 
 export const generateCocktailRecipe = async (inputs: string, preferences: string): Promise<CocktailRecipe> => {
-  const model = "gemini-2.5-flash";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
   
   const prompt = `Create a unique, London-inspired or classic cocktail recipe based on these ingredients: ${inputs}. 
   User preferences: ${preferences}.
@@ -44,70 +55,97 @@ export const generateCocktailRecipe = async (inputs: string, preferences: string
   - Suggest specific premium glassware (e.g., "Crystal Coupe Glasses").
   - Suggest specialty ingredients or garnishes (e.g., "Luxardo Maraschino Cherries", "Angostura Bitters", "Dehydrated Blood Orange Wheels") that aren't basic staples.
   - Provide a short reason why this product upgrades the experience.
+  
+  Return ONLY valid JSON matching the schema.
   `;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: RECIPE_SCHEMA
+      }
+    });
 
-  const text = response.text;
-  if (!text) throw new Error("No response from AI");
-  return JSON.parse(text) as CocktailRecipe;
+    const text = response.text;
+    if (!text) throw new Error("No response from AI");
+    return JSON.parse(text) as CocktailRecipe;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to generate recipe");
+  }
 };
 
 export const getShoppingSuggestions = async (item: string, location: string): Promise<ShoppingRecommendation> => {
-  const model = "gemini-2.5-flash";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
   
-  const prompt = `I am in ${location}. Where can I buy ${item}? 
-  Provide a helpful summary of where to look locally.
-  Also, generate search queries for online delivery services.
-  `;
+  const prompt = `You are a local shopping expert. I am looking to buy "${item}" and I am located at/near: ${location}.
 
-  // Use Google Maps tool
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      tools: [{ googleMaps: {} }],
-    }
-  });
+Please provide a comprehensive shopping guide with the following sections:
 
-  const text = response.text || "";
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+## 🏪 Nearby Stores
+List specific stores where I can likely find this item. For EACH store, provide:
+- **Store Name** (e.g., Tesco Express, Sainsbury's Local, specific off-license names)
+- **Approximate Address** or street name if known
+- **Distance** estimate from the location (e.g., "~5 min walk", "~0.3 miles")
+- **Why this store**: Brief note on why they'd stock this item
 
-  const locations: ShoppingLocation[] = [];
+Include a mix of:
+1. Convenience stores / Corner shops / Off-licenses (for quick access)
+2. Supermarkets (Tesco, Sainsbury's, Asda, Morrisons, Lidl, Aldi, Waitrose)
+3. Specialty stores if relevant (wine merchants, Asian supermarkets, etc.)
 
-  // Extract map data if available
-  groundingChunks.forEach(chunk => {
-    if (chunk.web?.uri && chunk.web?.title) {
-         locations.push({
-            name: chunk.web.title,
-            address: "Web Result",
-            mapLink: chunk.web.uri
-        });
-    }
-  });
+## 🚗 Larger Stores (Worth the Trip)
+If there are larger stores slightly further away with better selection, list them with addresses.
 
-  const encodedItem = encodeURIComponent(item);
-  
-  return {
-    intro: text,
-    locations: locations, 
-    onlineLinks: {
-      amazonSearch: `https://www.amazon.co.uk/s?k=${encodedItem}`,
-      uberEatsSearch: `https://www.ubereats.com/gb/search?q=${encodedItem}`,
-      waitroseSearch: `https://www.waitrose.com/ecom/shop/search?&searchTerm=${encodedItem}`
-    }
-  };
+## 📱 Online Delivery Options
+Suggest specific delivery services that operate in this area:
+- Grocery delivery apps (Getir, Gorillas, Zapp if available)
+- Supermarket delivery (Tesco, Sainsbury's, Ocado)
+- Alcohol-specific apps (if searching for alcohol)
+
+## 🔍 Recommended Search Queries
+Provide 3-5 search queries the user can copy/paste into Google to find local options:
+- Format each as a quoted search term on its own line
+
+## ⚠️ Tips & Considerations
+- Opening hours considerations
+- Age verification requirements (if alcohol)
+- Price comparison tips
+- Any seasonal availability notes
+
+Be specific with store names and locations. Use your knowledge of UK retail chains and their typical locations. If you're not certain about exact addresses, provide the general area or nearest landmark.`;
+
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: prompt,
+    });
+
+    const text = response.text || "";
+    const encodedItem = encodeURIComponent(item);
+    
+    return {
+      intro: text,
+      locations: [], 
+      onlineLinks: {
+        amazonSearch: `https://www.amazon.co.uk/s?k=${encodedItem}`,
+        uberEatsSearch: `https://www.ubereats.com/gb/search?q=${encodedItem}`,
+        waitroseSearch: `https://www.waitrose.com/ecom/shop/search?&searchTerm=${encodedItem}`
+      }
+    };
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to get shopping suggestions");
+  }
 };
 
 export const generatePartyGame = async (players: string, vibe: string, supplies: string): Promise<PartyGameSuggestion> => {
-  const model = "gemini-2.5-flash";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
 
   const prompt = `Create a fun, creative drinking game or party game based on the following parameters:
   - Number of Players: ${players}
@@ -115,6 +153,8 @@ export const generatePartyGame = async (players: string, vibe: string, supplies:
   - Supplies Available: ${supplies}
 
   The game should be easy to understand but fun to play. It can be a variation of a classic or something entirely new.
+  
+  Return ONLY valid JSON.
   `;
 
   const schema = {
@@ -124,27 +164,33 @@ export const generatePartyGame = async (players: string, vibe: string, supplies:
       description: { type: Type.STRING },
       setup: { type: Type.STRING },
       rules: { type: Type.ARRAY, items: { type: Type.STRING } },
-      vibeMatch: { type: Type.STRING, description: "A short sentence explaining why this fits the requested vibe." }
+      vibeMatch: { type: Type.STRING }
     },
     required: ["title", "description", "setup", "rules", "vibeMatch"]
   };
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: schema
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
 
-  const text = response.text;
-  if (!text) throw new Error("Failed to generate game");
-  return JSON.parse(text) as PartyGameSuggestion;
+    const text = response.text;
+    if (!text) throw new Error("Failed to generate game");
+    return JSON.parse(text) as PartyGameSuggestion;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to generate game");
+  }
 };
 
 export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDiceResult> => {
-  const model = "gemini-2.5-flash";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
 
   const prompt = `Generate a romantic or spicy "sex dice" result for a couple. 
   Intensity Level: ${intensity}.
@@ -171,48 +217,60 @@ export const generateSpicyDiceRoll = async (intensity: string): Promise<SpicyDic
     required: ["action", "detail", "instruction"]
   };
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: schema
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
 
-  const text = response.text;
-  if (!text) throw new Error("Failed to generate roll");
-  return JSON.parse(text) as SpicyDiceResult;
+    const text = response.text;
+    if (!text) throw new Error("Failed to generate roll");
+    return JSON.parse(text) as SpicyDiceResult;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to generate dice roll");
+  }
 };
 
 export const generateSpicyIllustration = async (action: string, detail: string): Promise<string> => {
-  const model = "gemini-2.5-flash-image";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
 
   const prompt = `Create a cute, minimalist, tasteful line-art cartoon illustration of a couple. 
   Concept: Romantic couple doing ${action} near ${detail}.
   Style: Simple black outline drawing on white background. Abstract, artistic, stick-figure style or simple vector art. 
   NO NUDITY. Keep it playful, heartwarming and romantic. High quality sketch.`;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: {
-      parts: [{ text: prompt }]
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: {
+        parts: [{ text: prompt }]
+      }
+    });
 
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      return part.inlineData.data;
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return part.inlineData.data;
+      }
     }
+    
+    throw new Error("No image generated");
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to generate illustration");
   }
-  
-  throw new Error("No image generated");
 };
 
 // --- Vision Features ---
 
 export const analyzeImageForRecipe = async (base64Image: string): Promise<CocktailRecipe> => {
-  const model = "gemini-2.5-flash";
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
 
   const prompt = `Look at this image of bottles and ingredients. 
   1. Identify the alcohol, mixers, and other ingredients present.
@@ -224,46 +282,57 @@ export const analyzeImageForRecipe = async (base64Image: string): Promise<Cockta
   4. Return a JSON recipe object.
   `;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: {
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        { text: prompt }
-      ]
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: {
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: RECIPE_SCHEMA
+      }
+    });
 
-  const text = response.text;
-  if (!text) throw new Error("Could not analyze image");
-  return JSON.parse(text) as CocktailRecipe;
+    const text = response.text;
+    if (!text) throw new Error("Could not analyze image");
+    return JSON.parse(text) as CocktailRecipe;
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to analyze image");
+  }
 };
 
 export const generateCocktailImage = async (recipeName: string, description: string): Promise<string> => {
-  const model = "gemini-2.5-flash-image"; // Dedicated image generation model
+  const genAI = getAI();
+  const model = "gemini-2.0-flash";
 
   const prompt = `A professional, photorealistic 4k close-up photograph of a ${recipeName} cocktail. 
   Description: ${description}. 
   Setting: A dimly lit, sophisticated London speakeasy bar with moody lighting and elegant glassware. 
   The drink looks delicious and refreshing.`;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: {
-      parts: [{ text: prompt }]
-    }
-  });
+  try {
+    const response = await genAI.models.generateContent({
+      model,
+      contents: {
+        parts: [{ text: prompt }]
+      }
+    });
 
-  // Extract the image from the response
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      return part.inlineData.data;
+    // Extract the image from the response
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return part.inlineData.data;
+      }
     }
+    
+    throw new Error("No image generated");
+  } catch (error: any) {
+    console.error("Gemini API Error:", error);
+    throw new Error(error?.message || "Failed to generate cocktail image");
   }
-  
-  throw new Error("No image generated");
 };

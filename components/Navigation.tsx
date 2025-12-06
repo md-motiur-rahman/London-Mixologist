@@ -40,10 +40,61 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, setView, is
 
   return (
     <>
+        {/* MOBILE TOP HEADER BAR */}
+        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-royalblue/95 backdrop-blur-xl border-b border-sapphire/20 z-40 flex items-center justify-between px-4">
+            {/* Brand Logo */}
+            <div 
+                className="flex items-center gap-2.5 cursor-pointer group"
+                onClick={() => handleMobileNav(AppView.DASHBOARD)}
+            >
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 text-base group-hover:scale-105 transition-transform duration-300">
+                    LM
+                </div>
+                <div className="flex flex-col">
+                    <span className="font-serif font-bold text-lg text-swanwing leading-none tracking-tight">London</span>
+                    <span className="text-[8px] text-quicksand uppercase tracking-[0.2em] font-bold mt-0.5">Mixologist</span>
+                </div>
+            </div>
+
+            {/* Right side actions */}
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={toggleTheme} 
+                    className="p-2 rounded-full text-shellstone hover:text-quicksand hover:bg-white/5 transition-all"
+                >
+                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                {user?.avatar ? (
+                    <button onClick={() => handleMobileNav(AppView.PROFILE)}>
+                        <img src={user.avatar} className="w-8 h-8 rounded-full border-2 border-sapphire" alt="Profile" />
+                    </button>
+                ) : (
+                    <button 
+                        onClick={() => handleMobileNav(AppView.PROFILE)}
+                        className="p-2 rounded-full text-shellstone hover:text-quicksand hover:bg-white/5 transition-all"
+                    >
+                        <User size={18} />
+                    </button>
+                )}
+            </div>
+        </header>
+
         {/* MOBILE MENU OVERLAY (Drawer) */}
-        <div className={`md:hidden fixed inset-0 z-50 bg-royalblue/95 backdrop-blur-xl transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} flex flex-col pt-20 px-6 pb-24 overflow-y-auto`}>
+        <div className={`md:hidden fixed inset-0 z-50 bg-royalblue/95 backdrop-blur-xl transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} flex flex-col pt-8 px-6 pb-24 overflow-y-auto`}>
             <div className="flex items-center justify-between mb-8 pb-4 border-b border-sapphire/30">
-                <h2 className="text-2xl font-serif font-bold text-swanwing">Menu</h2>
+                {/* Brand Logo */}
+                <div 
+                    className="flex items-center gap-3 cursor-pointer group"
+                    onClick={() => handleMobileNav(AppView.DASHBOARD)}
+                >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-quicksand to-[#b89b5e] flex items-center justify-center text-royalblue font-black shadow-lg shadow-quicksand/20 text-lg group-hover:scale-105 transition-transform duration-300">
+                        LM
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="font-serif font-bold text-xl text-swanwing leading-none tracking-tight group-hover:text-quicksand transition-colors">London</span>
+                        <span className="text-[9px] text-quicksand uppercase tracking-[0.2em] font-bold mt-0.5">Mixologist</span>
+                    </div>
+                </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-shellstone hover:text-quicksand">
                     <X size={24} />
                 </button>
