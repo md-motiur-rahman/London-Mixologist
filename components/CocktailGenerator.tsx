@@ -546,16 +546,16 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
                 {/* Lookup Toggle */}
                 <div className="flex bg-sapphire/20 p-1 rounded-lg border border-sapphire/30">
                   <button 
-                    onClick={() => setLookupMethod('browse')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center gap-2 ${lookupMethod === 'browse' ? 'bg-quicksand text-royalblue shadow-md' : 'text-shellstone hover:text-swanwing'}`}
-                  >
-                    <Globe size={14} /> Browse by Origin
-                  </button>
-                  <button 
                     onClick={() => setLookupMethod('search')}
                     className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center gap-2 ${lookupMethod === 'search' ? 'bg-quicksand text-royalblue shadow-md' : 'text-shellstone hover:text-swanwing'}`}
                   >
                     <Search size={14} /> Direct Search
+                  </button>
+                  <button 
+                    onClick={() => setLookupMethod('browse')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all flex items-center justify-center gap-2 ${lookupMethod === 'browse' ? 'bg-quicksand text-royalblue shadow-md' : 'text-shellstone hover:text-swanwing'}`}
+                  >
+                    <Globe size={14} /> Browse by Origin
                   </button>
                 </div>
 
