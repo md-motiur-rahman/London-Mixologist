@@ -96,31 +96,23 @@ function App() {
 
     initAuth();
 
-    let subscription: { unsubscribe: () => void } | undefined;
-    try {
-      const result = supabase.auth.onAuthStateChange(async (_event, session) => {
-        try {
-          if (session?.user) {
-            const profile = mapSupabaseUserToProfile(session.user);
-            setUser(profile);
-            fetchRecipes(profile.id);
-          } else {
-            setUser(null);
-            setSavedRecipes([]);
-          }
-        } catch (innerErr) {
-          console.error('Error handling auth state change:', innerErr);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        if (session?.user) {
+          const profile = mapSupabaseUserToProfile(session.user);
+          setUser(profile);
+          fetchRecipes(profile.id);
+        } else {
+          setUser(null);
+          setSavedRecipes([]);
         }
-      });
-      subscription = result?.data?.subscription ?? result?.subscription ?? undefined as any;
-    } catch (subErr) {
-      console.error('Error subscribing to auth state changes:', subErr);
-    }
+      } catch (innerErr) {
+        console.error('Error handling auth state change:', innerErr);
+      }
+    });
 
     return () => {
-      try {
-        subscription?.unsubscribe?.();
-      } catch {}
+      subscription.unsubscribe();
     };
   }, []);
 
