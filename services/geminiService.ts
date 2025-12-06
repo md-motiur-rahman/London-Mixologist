@@ -306,33 +306,55 @@ export const analyzeImageForRecipe = async (base64Image: string): Promise<Cockta
   }
 };
 
-export const generateCocktailImage = async (recipeName: string, description: string): Promise<string> => {
-  const genAI = getAI();
-  const model = "gemini-2.0-flash";
-
-  const prompt = `A professional, photorealistic 4k close-up photograph of a ${recipeName} cocktail. 
-  Description: ${description}. 
-  Setting: A dimly lit, sophisticated London speakeasy bar with moody lighting and elegant glassware. 
-  The drink looks delicious and refreshing.`;
-
-  try {
-    const response = await genAI.models.generateContent({
-      model,
-      contents: {
-        parts: [{ text: prompt }]
-      }
-    });
-
-    // Extract the image from the response
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return part.inlineData.data;
-      }
-    }
-    
-    throw new Error("No image generated");
-  } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    throw new Error(error?.message || "Failed to generate cocktail image");
+export const generateCocktailImage = async (recipeName: string, description: string, ingredients: string[]): Promise<string> => {
+  // Curated list of high-quality cocktail images from Unsplash
+  // These are direct image URLs that are reliable and fast
+  const cocktailImages = [
+    'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&h=600&fit=crop', // Classic cocktail
+    'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=800&h=600&fit=crop', // Colorful cocktail
+    'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=800&h=600&fit=crop', // Whiskey cocktail
+    'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=800&h=600&fit=crop', // Bar cocktail
+    'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=800&h=600&fit=crop', // Elegant cocktail
+    'https://images.unsplash.com/photo-1587223962930-cb7f31384c19?w=800&h=600&fit=crop', // Martini style
+    'https://images.unsplash.com/photo-1560512823-829485b8bf24?w=800&h=600&fit=crop', // Tropical cocktail
+    'https://images.unsplash.com/photo-1582837403612-c3e0f1d11e8e?w=800&h=600&fit=crop', // Dark cocktail
+    'https://images.unsplash.com/photo-1541546006121-5c3bc5e8c7b9?w=800&h=600&fit=crop', // Gin cocktail
+    'https://images.unsplash.com/photo-1605270012917-bf157c5a9541?w=800&h=600&fit=crop', // Citrus cocktail
+    'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&h=600&fit=crop', // Mojito style
+    'https://images.unsplash.com/photo-1571950006920-a6a8e1a2c1f1?w=800&h=600&fit=crop', // Negroni style
+  ];
+  
+  // Categorize images by cocktail type/color
+  const darkCocktails = [2, 7]; // whiskey, dark
+  const citrusCocktails = [6, 9, 10]; // tropical, citrus, mojito
+  const elegantCocktails = [0, 4, 5, 11]; // classic, elegant, martini, negroni
+  const colorfulCocktails = [1, 3, 8]; // colorful, bar, gin
+  
+  // Determine cocktail type based on ingredients
+  let imageIndices = elegantCocktails; // default
+  
+  const ingredientsLower = ingredients.map(i => i.toLowerCase()).join(' ');
+  
+  if (ingredientsLower.includes('whiskey') || ingredientsLower.includes('bourbon') || 
+      ingredientsLower.includes('cola') || ingredientsLower.includes('coffee')) {
+    imageIndices = darkCocktails;
+  } else if (ingredientsLower.includes('lime') || ingredientsLower.includes('lemon') || 
+             ingredientsLower.includes('orange') || ingredientsLower.includes('mint') ||
+             ingredientsLower.includes('tropical') || ingredientsLower.includes('pineapple')) {
+    imageIndices = citrusCocktails;
+  } else if (ingredientsLower.includes('gin') || ingredientsLower.includes('vodka') ||
+             ingredientsLower.includes('cranberry') || ingredientsLower.includes('blue')) {
+    imageIndices = colorfulCocktails;
   }
+  
+  // Create a deterministic index based on recipe name
+  const seed = recipeName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const selectedIndex = imageIndices[seed % imageIndices.length];
+  
+  return cocktailImages[selectedIndex];
+};
+
+// Helper function to check if a string is a URL or base64
+export const isImageUrl = (str: string): boolean => {
+  return str.startsWith('http://') || str.startsWith('https://');
 };

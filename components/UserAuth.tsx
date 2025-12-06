@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { Lock, User, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, Mail, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase, mapSupabaseUserToProfile } from '../services/supabaseClient';
 
 interface UserAuthProps {
@@ -13,42 +13,102 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [fullName, setFullName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
     setError('');
+    setSuccess('');
     
-    // Uses window.location.origin to ensure the user is redirected back to the current domain
-    // You must add this domain to "Redirect URLs" in your Supabase Dashboard -> Authentication -> URL Configuration
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: provider,
-      options: {
-        redirectTo: `${window.location.origin}`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      // Get the current URL for redirect
+      const redirectUrl = window.location.origin;
+      console.log('OAuth redirect URL:', redirectUrl);
+      
+      // IMPORTANT: For Google OAuth to work, you must:
+      // 1. Enable Google provider in Supabase Dashboard -> Authentication -> Providers
+      // 2. Add your Google OAuth Client ID and Secret from Google Cloud Console
+      // 3. Add the redirect URL to Supabase Dashboard -> Authentication -> URL Configuration
+      // 4. Add the redirect URL to Google Cloud Console -> OAuth 2.0 Client -> Authorized redirect URIs
+      //    Format: https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: provider,
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: false,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
+      });
+      
+      console.log('OAuth response:', { data, error });
+      
+      if (error) {
+        throw error;
       }
-    });
-    
-    if (error) {
-      setError(error.message);
+      
+      // If we have a URL, redirect manually (fallback)
+      if (data?.url) {
+        console.log('Redirecting to:', data.url);
+        window.location.href = data.url;
+      }
+      
+    } catch (err: any) {
+      console.error('Social login error:', err);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to connect with Google. Please try again.';
+      
+      if (err.message?.includes('provider is not enabled')) {
+        errorMessage = 'Google sign-in is not configured. Please use email/password instead.';
+      } else if (err.message?.includes('redirect')) {
+        errorMessage = 'Redirect URL not configured. Please contact support.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
-    // Note: If successful, the browser redirects immediately, so setLoading(false) isn't strictly necessary 
-    // but good for cleanup if the redirect is slow.
+  };
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
   const handleStandardAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
+    
+    // Validation
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
     }
     
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    
+    if (isSignUp && !fullName.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    
     setLoading(true);
-    setError('');
 
     try {
       if (isSignUp) {
@@ -57,20 +117,34 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
           password,
           options: {
             data: {
-              full_name: fullName,
-              subscriptionStatus: 'inactive'
+              full_name: fullName.trim(),
+              subscriptionStatus: 'inactive',
+              subscriptionPlan: 'free'
             }
           }
         });
         
-        if (error) throw error;
+        if (error) {
+          // Handle specific error cases
+          if (error.message.includes('already registered')) {
+            throw new Error('This email is already registered. Please sign in instead.');
+          }
+          throw error;
+        }
         
         if (data.user) {
            // Login immediately after signup if auto-confirm is on, or inform user
            if (data.session) {
-             onLogin(mapSupabaseUserToProfile(data.user));
+             setSuccess('Account created successfully! Welcome aboard.');
+             setTimeout(() => {
+               onLogin(mapSupabaseUserToProfile(data.user!));
+             }, 1000);
            } else {
-             setError("Please check your email to confirm your account.");
+             setSuccess("Account created! Please check your email to confirm your account before signing in.");
+             // Clear form
+             setEmail('');
+             setPassword('');
+             setFullName('');
            }
         }
       } else {
@@ -79,14 +153,56 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Handle specific error cases
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('Invalid email or password. Please try again.');
+          }
+          if (error.message.includes('Email not confirmed')) {
+            throw new Error('Please confirm your email before signing in. Check your inbox.');
+          }
+          throw error;
+        }
 
         if (data.user) {
-          onLogin(mapSupabaseUserToProfile(data.user));
+          setSuccess('Welcome back!');
+          setTimeout(() => {
+            onLogin(mapSupabaseUserToProfile(data.user));
+          }, 500);
         }
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed");
+      console.error('Auth error:', err);
+      setError(err.message || "Authentication failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      setSuccess('Password reset email sent! Check your inbox.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
     }
@@ -141,7 +257,7 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
                 <User className="absolute left-4 top-3.5 text-shellstone" size={18} />
                 <input 
                   type="text" 
-                  required
+                  required={isSignUp}
                   className="w-full bg-royalblue/60 border border-sapphire/50 rounded-xl py-3 pl-12 pr-4 text-swanwing focus:border-quicksand focus:ring-1 focus:ring-quicksand outline-none transition-all placeholder-shellstone/50"
                   placeholder="John Doe"
                   value={fullName}
@@ -154,36 +270,67 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
           <div className="space-y-1">
             <label className="text-xs text-quicksand font-bold uppercase ml-1">Email Address</label>
             <div className="relative">
-              <User className="absolute left-4 top-3.5 text-shellstone" size={18} />
+              <Mail className="absolute left-4 top-3.5 text-shellstone" size={18} />
               <input 
                 type="email" 
                 required
+                autoComplete="email"
                 className="w-full bg-royalblue/60 border border-sapphire/50 rounded-xl py-3 pl-12 pr-4 text-swanwing focus:border-quicksand focus:ring-1 focus:ring-quicksand outline-none transition-all placeholder-shellstone/50"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(''); setSuccess(''); }}
               />
             </div>
           </div>
           
           <div className="space-y-1">
-            <label className="text-xs text-quicksand font-bold uppercase ml-1">Password</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs text-quicksand font-bold uppercase ml-1">Password</label>
+              {!isSignUp && (
+                <button 
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-shellstone hover:text-quicksand transition-colors"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="absolute left-4 top-3.5 text-shellstone" size={18} />
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"}
                 required
                 minLength={6}
-                className="w-full bg-royalblue/60 border border-sapphire/50 rounded-xl py-3 pl-12 pr-4 text-swanwing focus:border-quicksand focus:ring-1 focus:ring-quicksand outline-none transition-all placeholder-shellstone/50"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                className="w-full bg-royalblue/60 border border-sapphire/50 rounded-xl py-3 pl-12 pr-12 text-swanwing focus:border-quicksand focus:ring-1 focus:ring-quicksand outline-none transition-all placeholder-shellstone/50"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError(''); setSuccess(''); }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-3.5 text-shellstone hover:text-quicksand transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+            {isSignUp && (
+              <p className="text-xs text-shellstone/70 ml-1 mt-1">Must be at least 6 characters</p>
+            )}
           </div>
 
+          {/* Success Message */}
+          {success && (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20 animate-fade-in">
+                <CheckCircle size={14} /> {success}
+            </div>
+          )}
+
+          {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 p-3 rounded text-center border border-red-500/20 animate-fade-in">
+            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20 animate-fade-in">
                 <AlertCircle size={14} /> {error}
             </div>
           )}
@@ -193,13 +340,20 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
             disabled={loading}
             className="w-full bg-quicksand text-royalblue font-bold py-3.5 rounded-xl shadow-lg hover:bg-quicksand/90 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 mt-4 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (isSignUp ? 'Create Account' : 'Sign In')}
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                {isSignUp ? 'Creating account...' : 'Signing in...'}
+              </>
+            ) : (
+              isSignUp ? 'Create Account' : 'Sign In'
+            )}
           </button>
         </form>
 
-        <div className="text-center mt-6 z-10 relative">
+        <div className="text-center mt-6 z-10 relative space-y-2">
           <button 
-            onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
+            onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccess(''); }}
             className="text-sm text-shellstone hover:text-quicksand transition-colors underline decoration-dotted"
           >
             {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
