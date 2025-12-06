@@ -2,6 +2,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { CocktailRecipe, ShoppingRecommendation, ShoppingLocation, PartyGameSuggestion, SpicyDiceResult } from "../types";
 
 const apiKey = process.env.API_KEY || '';
+if(!apiKey) {
+  alert("API_KEY is not set in environment variables.");
+}
 const ai = new GoogleGenAI({ apiKey });
 
 const RECIPE_SCHEMA = {

@@ -79,31 +79,49 @@ function App() {
 
     // SUPABASE AUTH INITIALIZATION
     const initAuth = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session;
         if (session?.user) {
-            const profile = mapSupabaseUserToProfile(session.user);
-            setUser(profile);
-            fetchRecipes(profile.id);
+          const profile = mapSupabaseUserToProfile(session.user);
+          setUser(profile);
+          fetchRecipes(profile.id);
         }
+      } catch (err) {
+        console.error('Error initializing auth:', err);
+      } finally {
         setCheckingAuth(false);
+      }
     };
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
+    let subscription: { unsubscribe: () => void } | undefined;
+    try {
+      const result = supabase.auth.onAuthStateChange(async (_event, session) => {
+        try {
+          if (session?.user) {
             const profile = mapSupabaseUserToProfile(session.user);
             setUser(profile);
-            // Fetch recipes only if we just logged in (savedRecipes empty or user changed)
-            // But simple way is just fetch always on auth change
             fetchRecipes(profile.id);
-        } else {
+          } else {
             setUser(null);
             setSavedRecipes([]);
+          }
+        } catch (innerErr) {
+          console.error('Error handling auth state change:', innerErr);
         }
-    });
+      });
+      subscription = result?.data?.subscription ?? result?.subscription ?? undefined as any;
+    } catch (subErr) {
+      console.error('Error subscribing to auth state changes:', subErr);
+    }
 
-    return () => subscription.unsubscribe();
+    return () => {
+      try {
+        subscription?.unsubscribe?.();
+      } catch {}
+    };
   }, []);
 
   const handleVerify = () => {
