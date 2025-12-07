@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { Lock, User, Loader2, AlertCircle, Mail, CheckCircle, Eye, EyeOff } from 'lucide-react';
-import { supabase, mapSupabaseUserToProfile } from '../services/supabaseClient';
+import { supabase, mapSupabaseUserToProfile, createOrUpdateUserProfile } from '../services/supabaseClient';
 
 interface UserAuthProps {
   onLogin: (user: UserProfile) => void;
@@ -133,6 +133,15 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
         }
         
         if (data.user) {
+           // Create user profile in database
+           await createOrUpdateUserProfile(
+             data.user.id,
+             email,
+             fullName.trim(),
+             'email',
+             'user'
+           );
+
            // Login immediately after signup if auto-confirm is on, or inform user
            if (data.session) {
              setSuccess('Account created successfully! Welcome aboard.');

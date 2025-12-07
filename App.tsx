@@ -12,7 +12,7 @@ import { UserDashboard } from './components/UserDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CookiePolicy, Disclaimer, PrivacyPolicy, TermsAndConditions } from './components/LegalPages';
 import { AppView, UserProfile, SavedRecipe, CocktailRecipe } from './types';
-import { supabase, mapSupabaseUserToProfile } from './services/supabaseClient';
+import { supabase, mapSupabaseUserToProfile, fetchUserProfile, createOrUpdateUserProfile } from './services/supabaseClient';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
@@ -96,10 +96,24 @@ function App() {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          const profile = mapSupabaseUserToProfile(session.user);
+          // For OAuth logins (Google), create profile if it doesn't exist
+          if (event === 'SIGNED_IN') {
+            const meta = session.user.user_metadata || {};
+            await createOrUpdateUserProfile(
+              session.user.id,
+              session.user.email || '',
+              meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
+              session.user.app_metadata?.provider || 'email',
+              'user'
+            );
+          }
+          
+          // Try to fetch profile from database first, fallback to auth metadata
+          const dbProfile = await fetchUserProfile(session.user.id);
+          const profile = dbProfile || mapSupabaseUserToProfile(session.user);
           setUser(profile);
           fetchRecipes(profile.id);
         } else {
