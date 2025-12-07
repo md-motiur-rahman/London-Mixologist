@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { analyzeImageForRecipe, getCocktailTheme, CocktailTheme } from '../services/geminiService';
 import { CocktailRecipe, UserProfile } from '../types';
-import { Loader2, Camera, RefreshCw, Wand2, Wine, ShoppingCart, ExternalLink, Martini, Sparkles, Citrus, Lock } from 'lucide-react';
-import { SubscriptionModal } from './SubscriptionModal';
+import { Loader2, Camera, RefreshCw, Wand2, Wine, ShoppingCart, ExternalLink, Martini, Sparkles, Citrus, Lock, User, LogIn } from 'lucide-react';
 import { SocialShare } from './SocialShare';
 
 interface CocktailVisionProps {
@@ -24,7 +23,7 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
   const [stage, setStage] = useState<'idle' | 'analyzing' | 'complete'>('idle');
   const [recipe, setRecipe] = useState<CocktailRecipe | null>(null);
   const [cocktailTheme, setCocktailTheme] = useState<CocktailTheme | null>(null);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [shareText, setShareText] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,9 +43,10 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
   };
 
   const processImage = async () => {
-    if (!user || user.subscriptionStatus !== 'active') {
-        setShowSubscriptionModal(true);
-        return;
+    // Require authentication - no free tier
+    if (!user) {
+      setShowLoginPrompt(true);
+      return;
     }
 
     if (!selectedImage) return;
@@ -96,11 +96,39 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full h-full">
-      <SubscriptionModal 
-         isOpen={showSubscriptionModal} 
-         onClose={() => setShowSubscriptionModal(false)}
-         onSubscribe={onSubscribe}
-      />
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-royalblue border border-sapphire/50 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-fade-in">
+            <div className="text-center">
+              <div className="bg-quicksand/20 p-4 rounded-full inline-flex mb-4">
+                <LogIn size={32} className="text-quicksand" />
+              </div>
+              <h3 className="text-2xl font-bold serif text-swanwing mb-2">Sign In Required</h3>
+              <p className="text-shellstone mb-6">
+                Create a free account or sign in to use Tipsy Vision and generate unlimited AI cocktail recipes from your photos!
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowLoginPrompt(false);
+                    onSubscribe(); // This triggers the auth flow
+                  }}
+                  className="w-full bg-gradient-to-r from-quicksand to-[#d4b475] hover:from-[#d4b475] hover:to-quicksand text-royalblue font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all"
+                >
+                  <User size={18} /> Sign In / Create Account
+                </button>
+                <button
+                  onClick={() => setShowLoginPrompt(false)}
+                  className="w-full py-3 border border-sapphire text-shellstone rounded-xl hover:bg-sapphire/20 hover:text-swanwing transition-colors"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 md:mb-10 flex flex-col md:flex-row justify-between items-center text-center md:text-left">
         <div>
@@ -111,7 +139,17 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
             Upload a photo of your bar. AI will dream up a recipe and visualize it.
           </p>
         </div>
-        <div className="mt-4 md:mt-0">
+        <div className="mt-4 md:mt-0 flex items-center gap-4">
+             {/* Auth status indicator */}
+             {!user ? (
+               <div className="text-xs text-shellstone bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-500/30">
+                 <span className="text-amber-400 font-bold">🔒 Sign in required</span>
+               </div>
+             ) : (
+               <div className="text-xs text-shellstone bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30">
+                 <span className="text-emerald-400 font-bold">✓ Unlimited Access</span>
+               </div>
+             )}
              <SocialShare title="Tipsy Vision" text="Check out what AI created from my bar ingredients!" />
         </div>
       </div>
@@ -163,7 +201,11 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
                disabled={!selectedImage}
                className="w-full bg-gradient-to-r from-quicksand to-[#d4b475] hover:from-[#d4b475] hover:to-quicksand text-royalblue font-bold py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed text-lg active:scale-95"
              >
-               {user?.subscriptionStatus !== 'active' ? <Lock size={20} /> : <Wand2 size={20} />} Analyze & Create
+               {!user ? (
+                 <><Lock size={20} /> Sign In to Create</>
+               ) : (
+                 <><Wand2 size={20} /> Analyze & Create</>
+               )}
              </button>
           )}
 
