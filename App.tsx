@@ -33,10 +33,19 @@ function App() {
     }
   }, [currentView]);
 
+  // Admin emails - add your email here for admin access
+  const ADMIN_EMAILS = ['cse.motiur@gmail.com'];
+  
+  // Check if user is admin (by email or database role)
+  const isUserAdmin = (userProfile: UserProfile | null): boolean => {
+    if (!userProfile) return false;
+    return userProfile.role === 'admin' || ADMIN_EMAILS.includes(userProfile.email.toLowerCase());
+  };
+
   // Check for admin access when URL hash changes or user changes
   useEffect(() => {
     const checkAdminAccess = () => {
-      if (user?.role === 'admin' && window.location.hash === '#adminmixlock') {
+      if (isUserAdmin(user) && window.location.hash === '#adminmixlock') {
         setCurrentView(AppView.ADMIN);
       }
     };
@@ -97,9 +106,10 @@ function App() {
     // SUPABASE AUTH INITIALIZATION
     const initAuth = async () => {
       try {
-        // Check for OAuth callback in URL hash
+        // Check for OAuth callback in URL hash (has access_token)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
+        const isAdminHash = window.location.hash === '#adminmixlock';
         
         if (accessToken) {
           // Clear the hash from URL for cleaner look
@@ -109,9 +119,25 @@ function App() {
         const { data } = await supabase.auth.getSession();
         const session = data?.session;
         if (session?.user) {
-          const profile = mapSupabaseUserToProfile(session.user);
+          let profile = mapSupabaseUserToProfile(session.user);
           setUser(profile);
           fetchRecipes(profile.id);
+          
+          // Try to get role from database
+          try {
+            const dbProfile = await fetchUserProfile(session.user.id);
+            if (dbProfile) {
+              profile = dbProfile;
+              setUser(dbProfile);
+              
+              // Check for admin access
+              if (dbProfile.role === 'admin' && isAdminHash) {
+                setCurrentView(AppView.ADMIN);
+              }
+            }
+          } catch (dbErr) {
+            console.warn('Could not fetch profile from database:', dbErr);
+          }
         }
       } catch (err) {
         console.error('Error initializing auth:', err);
@@ -275,7 +301,7 @@ function App() {
           <UserAuth onLogin={handleLogin} />
         );
       case AppView.ADMIN:
-        return user?.role === 'admin' ? <AdminDashboard /> : <Dashboard setView={setCurrentView} />;
+        return isUserAdmin(user) ? <AdminDashboard /> : <Dashboard setView={setCurrentView} />;
       case AppView.COOKIE_POLICY:
         return <CookiePolicy onNavigate={setCurrentView} />;
       case AppView.PRIVACY_POLICY:
