@@ -159,30 +159,38 @@ function App() {
         setUser(profile);
         fetchRecipes(profile.id);
         
-        // Try to get profile from database in background (for role info)
-        fetchUserProfile(session.user.id).then(dbProfile => {
-          if (dbProfile) {
-            setUser(dbProfile);
-            // Check for admin access via URL hash
-            if (dbProfile.role === 'admin' && window.location.hash === '#adminmixlock') {
-              setCurrentView(AppView.ADMIN);
-            }
-          }
-        }).catch(err => {
-          console.warn('Could not fetch user profile from database:', err);
-        });
-        
-        // For OAuth logins (Google), try to create profile in background
+        // Only create/update profile on SIGNED_IN event (not on every auth state change)
         if (event === 'SIGNED_IN') {
-          const meta = session.user.user_metadata || {};
-          createOrUpdateUserProfile(
-            session.user.id,
-            session.user.email || '',
-            meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
-            session.user.app_metadata?.provider || 'email',
-            'user'
-          ).catch(err => {
-            console.warn('Could not create user profile in database:', err);
+          // Check if we've already created profile in this session
+          const profileCreatedKey = `profile_created_${session.user.id}`;
+          const alreadyCreated = sessionStorage.getItem(profileCreatedKey);
+          
+          if (!alreadyCreated) {
+            const meta = session.user.user_metadata || {};
+            createOrUpdateUserProfile(
+              session.user.id,
+              session.user.email || '',
+              meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
+              session.user.app_metadata?.provider || 'email',
+              'user'
+            ).then(() => {
+              sessionStorage.setItem(profileCreatedKey, 'true');
+            }).catch(err => {
+              console.warn('Could not create user profile in database:', err);
+            });
+          }
+          
+          // Fetch profile from database for role info
+          fetchUserProfile(session.user.id).then(dbProfile => {
+            if (dbProfile) {
+              setUser(dbProfile);
+              // Check for admin access via URL hash
+              if (dbProfile.role === 'admin' && window.location.hash === '#adminmixlock') {
+                setCurrentView(AppView.ADMIN);
+              }
+            }
+          }).catch(err => {
+            console.warn('Could not fetch user profile from database:', err);
           });
         }
       } else {
