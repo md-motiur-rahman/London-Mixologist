@@ -126,49 +126,42 @@ function App() {
     }, 100);
 
     // Auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (session?.user) {
-          // Always use auth metadata first for immediate response
-          let profile = mapSupabaseUserToProfile(session.user);
-          
-          // Try to get profile from database (for role info)
-          const dbProfile = await fetchUserProfile(session.user.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        // Always use auth metadata first for immediate response
+        const profile = mapSupabaseUserToProfile(session.user);
+        setUser(profile);
+        fetchRecipes(profile.id);
+        
+        // Try to get profile from database in background (for role info)
+        fetchUserProfile(session.user.id).then(dbProfile => {
           if (dbProfile) {
-            profile = dbProfile;
+            setUser(dbProfile);
+            // Check for admin access via URL hash
+            if (dbProfile.role === 'admin' && window.location.hash === '#adminmixlock') {
+              setCurrentView(AppView.ADMIN);
+            }
           }
-          
-          setUser(profile);
-          fetchRecipes(profile.id);
-          
-          // Check for admin access via URL hash
-          if (profile.role === 'admin' && window.location.hash === '#adminmixlock') {
-            setCurrentView(AppView.ADMIN);
-          }
-          
-          // For OAuth logins (Google), try to create profile in background (non-blocking)
-          if (event === 'SIGNED_IN' && !dbProfile) {
-            const meta = session.user.user_metadata || {};
-            createOrUpdateUserProfile(
-              session.user.id,
-              session.user.email || '',
-              meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
-              session.user.app_metadata?.provider || 'email',
-              'user'
-            ).catch(err => {
-              console.warn('Could not create user profile in database:', err);
-            });
-          }
-        } else {
-          setUser(null);
-          setSavedRecipes([]);
+        }).catch(err => {
+          console.warn('Could not fetch user profile from database:', err);
+        });
+        
+        // For OAuth logins (Google), try to create profile in background
+        if (event === 'SIGNED_IN') {
+          const meta = session.user.user_metadata || {};
+          createOrUpdateUserProfile(
+            session.user.id,
+            session.user.email || '',
+            meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
+            session.user.app_metadata?.provider || 'email',
+            'user'
+          ).catch(err => {
+            console.warn('Could not create user profile in database:', err);
+          });
         }
-      } catch (innerErr) {
-        console.error('Error handling auth state change:', innerErr);
-        // Still try to set user from session if possible
-        if (session?.user) {
-          setUser(mapSupabaseUserToProfile(session.user));
-        }
+      } else {
+        setUser(null);
+        setSavedRecipes([]);
       }
     });
 
