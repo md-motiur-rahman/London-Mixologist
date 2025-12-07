@@ -99,29 +99,39 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
-          // For OAuth logins (Google), create profile if it doesn't exist
+          // Always use auth metadata first for immediate response
+          const profile = mapSupabaseUserToProfile(session.user);
+          setUser(profile);
+          fetchRecipes(profile.id);
+          
+          // For OAuth logins (Google), try to create profile in background (non-blocking)
           if (event === 'SIGNED_IN') {
             const meta = session.user.user_metadata || {};
-            await createOrUpdateUserProfile(
+            createOrUpdateUserProfile(
               session.user.id,
               session.user.email || '',
               meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
               session.user.app_metadata?.provider || 'email',
               'user'
-            );
+            ).then(dbProfile => {
+              // Update with database profile if available (for role info)
+              if (dbProfile) {
+                setUser(dbProfile);
+              }
+            }).catch(err => {
+              console.warn('Could not create/fetch user profile from database:', err);
+            });
           }
-          
-          // Try to fetch profile from database first, fallback to auth metadata
-          const dbProfile = await fetchUserProfile(session.user.id);
-          const profile = dbProfile || mapSupabaseUserToProfile(session.user);
-          setUser(profile);
-          fetchRecipes(profile.id);
         } else {
           setUser(null);
           setSavedRecipes([]);
         }
       } catch (innerErr) {
         console.error('Error handling auth state change:', innerErr);
+        // Still try to set user from session if possible
+        if (session?.user) {
+          setUser(mapSupabaseUserToProfile(session.user));
+        }
       }
     });
 

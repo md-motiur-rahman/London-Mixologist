@@ -133,14 +133,16 @@ export const UserAuth: React.FC<UserAuthProps> = ({ onLogin }) => {
         }
         
         if (data.user) {
-           // Create user profile in database
-           await createOrUpdateUserProfile(
+           // Try to create user profile in database (non-blocking)
+           createOrUpdateUserProfile(
              data.user.id,
              email,
              fullName.trim(),
              'email',
              'user'
-           );
+           ).catch(err => {
+             console.warn('Could not create user profile in database:', err);
+           });
 
            // Login immediately after signup if auto-confirm is on, or inform user
            if (data.session) {
