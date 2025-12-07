@@ -80,6 +80,15 @@ function App() {
     // SUPABASE AUTH INITIALIZATION
     const initAuth = async () => {
       try {
+        // Check for OAuth callback in URL hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        
+        if (accessToken) {
+          // Clear the hash from URL for cleaner look
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        
         const { data } = await supabase.auth.getSession();
         const session = data?.session;
         if (session?.user) {
@@ -94,8 +103,12 @@ function App() {
       }
     };
 
-    initAuth();
+    // Small delay to ensure Supabase processes the OAuth callback
+    const timer = setTimeout(() => {
+      initAuth();
+    }, 100);
 
+    // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session?.user) {
@@ -136,6 +149,7 @@ function App() {
     });
 
     return () => {
+      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);
