@@ -33,6 +33,23 @@ function App() {
     }
   }, [currentView]);
 
+  // Check for admin access when URL hash changes or user changes
+  useEffect(() => {
+    const checkAdminAccess = () => {
+      if (user?.role === 'admin' && window.location.hash === '#adminmixlock') {
+        setCurrentView(AppView.ADMIN);
+      }
+    };
+
+    // Check on mount and when hash changes
+    checkAdminAccess();
+    window.addEventListener('hashchange', checkAdminAccess);
+    
+    return () => {
+      window.removeEventListener('hashchange', checkAdminAccess);
+    };
+  }, [user]);
+
   // Fetch Recipes function
   const fetchRecipes = async (userId: string) => {
     const { data, error } = await supabase
@@ -113,12 +130,24 @@ function App() {
       try {
         if (session?.user) {
           // Always use auth metadata first for immediate response
-          const profile = mapSupabaseUserToProfile(session.user);
+          let profile = mapSupabaseUserToProfile(session.user);
+          
+          // Try to get profile from database (for role info)
+          const dbProfile = await fetchUserProfile(session.user.id);
+          if (dbProfile) {
+            profile = dbProfile;
+          }
+          
           setUser(profile);
           fetchRecipes(profile.id);
           
+          // Check for admin access via URL hash
+          if (profile.role === 'admin' && window.location.hash === '#adminmixlock') {
+            setCurrentView(AppView.ADMIN);
+          }
+          
           // For OAuth logins (Google), try to create profile in background (non-blocking)
-          if (event === 'SIGNED_IN') {
+          if (event === 'SIGNED_IN' && !dbProfile) {
             const meta = session.user.user_metadata || {};
             createOrUpdateUserProfile(
               session.user.id,
@@ -126,13 +155,8 @@ function App() {
               meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User',
               session.user.app_metadata?.provider || 'email',
               'user'
-            ).then(dbProfile => {
-              // Update with database profile if available (for role info)
-              if (dbProfile) {
-                setUser(dbProfile);
-              }
-            }).catch(err => {
-              console.warn('Could not create/fetch user profile from database:', err);
+            ).catch(err => {
+              console.warn('Could not create user profile in database:', err);
             });
           }
         } else {
