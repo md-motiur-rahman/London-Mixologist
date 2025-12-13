@@ -1,5 +1,5 @@
 import { createClient, User } from '@supabase/supabase-js';
-import { UserProfile } from '../types';
+import { UserProfile, CocktailRecipe, SavedRecipe } from '../types';
 
 // Safely handle environment variables with fallbacks to prevent runtime errors
 const getEnvVar = (key: string) => {
@@ -124,5 +124,146 @@ export const createOrUpdateUserProfile = async (
   } catch (err) {
     console.error('Error in createOrUpdateUserProfile:', err);
     return null;
+  }
+};
+
+/**
+ * Update user profile fields in the database
+ * Called when user edits their profile
+ */
+export const updateUserProfileInDb = async (
+  userId: string,
+  updates: {
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+    address?: string;
+    avatar_url?: string;
+    amazon_associate_id?: string;
+    is_affiliate?: boolean;
+  }
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error updating user profile in DB:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in updateUserProfileInDb:', err);
+    return false;
+  }
+};
+
+/**
+ * Save a cocktail recipe to the database
+ * Called when a logged-in user saves a generated recipe
+ */
+export const saveRecipeToDatabase = async (
+  userId: string,
+  recipe: CocktailRecipe
+): Promise<SavedRecipe | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .insert({
+        user_id: userId,
+        name: recipe.name,
+        description: recipe.description,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        glassware: recipe.glassware,
+        difficulty: recipe.difficulty,
+        estimated_cost_gbp: recipe.estimatedCostGBP,
+        recommended_products: recipe.recommendedProducts
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving recipe:', error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      ingredients: data.ingredients,
+      instructions: data.instructions,
+      glassware: data.glassware,
+      difficulty: data.difficulty,
+      estimatedCostGBP: data.estimated_cost_gbp,
+      recommendedProducts: data.recommended_products || [],
+      dateCreated: data.created_at
+    };
+  } catch (err) {
+    console.error('Error in saveRecipeToDatabase:', err);
+    return null;
+  }
+};
+
+/**
+ * Fetch all saved recipes for a user
+ */
+export const fetchUserRecipes = async (userId: string): Promise<SavedRecipe[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user recipes:', error);
+      return [];
+    }
+
+    return (data || []).map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      description: recipe.description,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions,
+      glassware: recipe.glassware,
+      difficulty: recipe.difficulty,
+      estimatedCostGBP: recipe.estimated_cost_gbp,
+      recommendedProducts: recipe.recommended_products || [],
+      dateCreated: recipe.created_at
+    }));
+  } catch (err) {
+    console.error('Error in fetchUserRecipes:', err);
+    return [];
+  }
+};
+
+/**
+ * Delete a saved recipe
+ */
+export const deleteRecipe = async (recipeId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .eq('id', recipeId);
+
+    if (error) {
+      console.error('Error deleting recipe:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in deleteRecipe:', err);
+    return false;
   }
 };

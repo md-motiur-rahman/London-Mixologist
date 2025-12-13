@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { generateCocktailRecipe } from '../services/geminiService';
+import { saveRecipeToDatabase } from '../services/supabaseClient';
 import { CocktailRecipe, UserProfile } from '../types';
 import { Loader2, Sparkles, AlertCircle, Search, Wine, GlassWater, ChevronDown, ChevronUp, X, Check, Martini, Citrus, Wand2, ExternalLink, ShoppingCart, Heart, Lock, Globe } from 'lucide-react';
 import { SubscriptionModal } from './SubscriptionModal';
@@ -455,14 +456,23 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
     }
   };
 
-  const handleSave = () => {
-    if (!user || user.subscriptionStatus !== 'active') {
-        setShowSubscriptionModal(true);
+  const handleSave = async () => {
+    if (!user) {
+        setError('Please log in to save recipes.');
         return;
     }
-    if (recipe && onSave) {
-      onSave(recipe);
-      setSaved(true);
+    if (recipe) {
+      // Save to database
+      const savedRecipe = await saveRecipeToDatabase(user.id, recipe);
+      if (savedRecipe) {
+        setSaved(true);
+        // Also call the onSave callback if provided (for local state updates)
+        if (onSave) {
+          onSave(recipe);
+        }
+      } else {
+        setError('Failed to save recipe. Please try again.');
+      }
     }
   };
 
@@ -736,15 +746,15 @@ export const CocktailGenerator: React.FC<CocktailGeneratorProps> = ({ onSave, us
                 <div className="absolute inset-0 bg-gradient-to-t from-royalblue via-transparent to-transparent"></div>
                 
                 {/* Save Button */}
-                {onSave && (
-                   <button 
-                      onClick={handleSave}
-                      disabled={saved}
-                      className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition-all transform hover:scale-110 active:scale-95 ${saved ? 'bg-quicksand text-royalblue' : 'bg-royalblue/80 backdrop-blur text-quicksand hover:bg-quicksand hover:text-royalblue'}`}
-                   >
-                      {saved ? <Heart size={24} fill="currentColor" /> : (user?.subscriptionStatus === 'active' ? <Heart size={24} /> : <Lock size={24} />)}
-                   </button>
-                )}
+                <button 
+                  onClick={handleSave}
+                  disabled={saved || !user}
+                  className={`absolute top-4 right-4 px-4 py-2 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2 font-bold text-sm ${saved ? 'bg-quicksand text-royalblue' : !user ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed' : 'bg-royalblue/80 backdrop-blur text-quicksand hover:bg-quicksand hover:text-royalblue'}`}
+                  title={!user ? 'Log in to save recipes' : saved ? 'Recipe saved!' : 'Save this recipe'}
+                >
+                  {saved ? <Heart size={18} fill="currentColor" /> : <Heart size={18} />}
+                  {saved ? 'Saved!' : 'Save Recipe'}
+                </button>
                 
                 <div className="absolute top-4 left-4">
                     <SocialShare title={`Cocktail Recipe: ${recipe.name}`} text={shareText || `Check out this ${recipe.name} recipe on London Mixologist!`} />

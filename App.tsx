@@ -304,6 +304,7 @@ function App() {
              onLogout={handleLogout} 
              onNavigate={setCurrentView}
              onUpdateProfile={handleUpdateProfile}
+             onDeleteRecipe={(recipeId) => setSavedRecipes(prev => prev.filter(r => r.id !== recipeId))}
           />
         ) : (
           <UserAuth onLogin={handleLogin} />

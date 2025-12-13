@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, SavedRecipe, AppView, NotificationPreferences } from '../types';
-import { LogOut, Clock, Heart, Settings, ShoppingCart, ChevronRight, LayoutDashboard, Crown, CreditCard, Camera, TrendingUp, CheckCircle, Bell, Mail } from 'lucide-react';
+import { LogOut, Clock, Heart, Settings, ShoppingCart, ChevronRight, LayoutDashboard, Crown, CreditCard, Camera, TrendingUp, CheckCircle, Bell, Mail, X, Trash2 } from 'lucide-react';
 import { SubscriptionModal } from './SubscriptionModal';
-import { supabase } from '../services/supabaseClient';
+import { supabase, deleteRecipe, updateUserProfileInDb } from '../services/supabaseClient';
 
 interface UserDashboardProps {
   user: UserProfile;
@@ -10,15 +10,22 @@ interface UserDashboardProps {
   onLogout: () => void;
   onNavigate: (view: AppView) => void;
   onUpdateProfile: (updated: Partial<UserProfile>) => void;
+  onDeleteRecipe?: (recipeId: string) => void;
 }
 
-export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes, onLogout, onNavigate, onUpdateProfile }) => {
-  const [activeTab, setActiveTab] = useState<'history' | 'saved' | 'settings' | 'subscription' | 'affiliate' | 'notifications'>('history');
+export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes, onLogout, onNavigate, onUpdateProfile, onDeleteRecipe }) => {
+  const [activeTab, setActiveTab] = useState<'history' | 'saved' | 'settings' | 'subscription' | 'affiliate' | 'notifications'>('saved');
+  
+  // Recipe View State
+  const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
   
   // Profile Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [editEmail, setEditEmail] = useState(user.email);
+  const [editPhone, setEditPhone] = useState(user.phoneNumber || '');
+  const [editAddress, setEditAddress] = useState(user.address || '');
+  const [savingProfile, setSavingProfile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Affiliate Edit State
@@ -42,6 +49,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
       }
       setEditName(user.name);
       setEditEmail(user.email);
+      setEditPhone(user.phoneNumber || '');
+      setEditAddress(user.address || '');
   }, [user]);
 
   const updateSupabaseMetadata = async (updates: any) => {
@@ -51,30 +60,77 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
     if (error) console.error("Error updating profile:", error);
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
           const reader = new FileReader();
-          reader.onloadend = () => {
+          reader.onloadend = async () => {
               const base64 = reader.result as string;
-              onUpdateProfile({ avatar: base64 });
-              updateSupabaseMetadata({ avatar_url: base64 });
+              
+              // Update in database
+              const dbSuccess = await updateUserProfileInDb(user.id, {
+                avatar_url: base64
+              });
+              
+              if (dbSuccess) {
+                // Update local state
+                onUpdateProfile({ avatar: base64 });
+                // Update auth metadata
+                await updateSupabaseMetadata({ avatar_url: base64 });
+              } else {
+                alert('Failed to update profile picture. Please try again.');
+              }
           };
           reader.readAsDataURL(file);
       }
   };
 
   const handleProfileSave = async () => {
-      onUpdateProfile({ name: editName, email: editEmail });
+      setSavingProfile(true);
       
-      // Update Auth Email if changed (requires re-confirmation usually, but here we just try)
-      if (editEmail !== user.email) {
-          const { error } = await supabase.auth.updateUser({ email: editEmail });
-          if (error) alert("Could not update email: " + error.message);
-      }
+      try {
+        // Update in user_profiles table
+        const dbSuccess = await updateUserProfileInDb(user.id, {
+          full_name: editName,
+          email: editEmail,
+          phone_number: editPhone,
+          address: editAddress
+        });
 
-      await updateSupabaseMetadata({ full_name: editName });
-      setIsEditing(false);
+        if (!dbSuccess) {
+          alert('Failed to save profile to database. Please try again.');
+          setSavingProfile(false);
+          return;
+        }
+
+        // Update local state
+        onUpdateProfile({ 
+          name: editName, 
+          email: editEmail,
+          phoneNumber: editPhone,
+          address: editAddress
+        });
+        
+        // Update Auth Email if changed (requires re-confirmation usually)
+        if (editEmail !== user.email) {
+            const { error } = await supabase.auth.updateUser({ email: editEmail });
+            if (error) alert("Could not update email: " + error.message);
+        }
+
+        // Also update auth metadata for consistency
+        await updateSupabaseMetadata({ 
+          full_name: editName,
+          phoneNumber: editPhone,
+          address: editAddress
+        });
+        
+        setIsEditing(false);
+      } catch (err) {
+        console.error('Error saving profile:', err);
+        alert('An error occurred while saving your profile.');
+      } finally {
+        setSavingProfile(false);
+      }
   };
 
   const handleAffiliateSave = () => {
@@ -104,6 +160,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
       setShowSubscriptionModal(false);
   };
 
+  const handleDeleteRecipe = async (recipeId: string) => {
+      const success = await deleteRecipe(recipeId);
+      if (success) {
+          setSelectedRecipe(null);
+          if (onDeleteRecipe) {
+              onDeleteRecipe(recipeId);
+          }
+      }
+  };
+
   // Helper for smoother toggle switch
   const ToggleSwitch = ({ active, onClick, disabled }: { active: boolean, onClick?: () => void, disabled?: boolean }) => (
       <div 
@@ -121,6 +187,109 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
         onClose={() => setShowSubscriptionModal(false)}
         onSubscribe={handleSubscriptionSuccess}
       />
+
+      {/* Recipe View Modal */}
+      {selectedRecipe && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-8 md:pt-12 overflow-y-auto animate-fade-in" onClick={() => setSelectedRecipe(null)}>
+          <div 
+            className="bg-royalblue border border-sapphire/50 rounded-2xl max-w-2xl w-full shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-royalblue border-b border-sapphire/30 p-4 flex justify-between items-center rounded-t-2xl">
+              <h2 className="text-2xl font-serif font-bold text-swanwing">{selectedRecipe.name}</h2>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDeleteRecipe(selectedRecipe.id)}
+                  className="p-2 text-red-400 hover:bg-red-500/20 rounded-full transition-colors"
+                  title="Delete Recipe"
+                >
+                  <Trash2 size={20} />
+                </button>
+                <button 
+                  onClick={() => setSelectedRecipe(null)}
+                  className="p-2 text-shellstone hover:text-swanwing hover:bg-sapphire/30 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {/* Description */}
+              <p className="text-shellstone">{selectedRecipe.description}</p>
+              
+              {/* Meta Info */}
+              <div className="flex flex-wrap gap-3">
+                <span className="text-xs font-bold px-3 py-1 bg-quicksand/20 text-quicksand rounded-full">
+                  {selectedRecipe.difficulty}
+                </span>
+                <span className="text-xs font-bold px-3 py-1 bg-sapphire/30 text-shellstone rounded-full">
+                  {selectedRecipe.glassware}
+                </span>
+                <span className="text-xs font-bold px-3 py-1 bg-sapphire/30 text-shellstone rounded-full">
+                  ~£{selectedRecipe.estimatedCostGBP?.toFixed(2) || 'N/A'}
+                </span>
+              </div>
+
+              {/* Ingredients */}
+              <div>
+                <h3 className="text-lg font-bold text-quicksand mb-3">Ingredients</h3>
+                <ul className="space-y-2">
+                  {selectedRecipe.ingredients.map((ingredient, index) => (
+                    <li key={index} className="flex items-center gap-2 text-shellstone">
+                      <span className="w-2 h-2 bg-quicksand rounded-full"></span>
+                      {ingredient}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <h3 className="text-lg font-bold text-quicksand mb-3">Instructions</h3>
+                <ol className="space-y-3">
+                  {selectedRecipe.instructions.map((instruction, index) => (
+                    <li key={index} className="flex gap-3 text-shellstone">
+                      <span className="flex-shrink-0 w-6 h-6 bg-quicksand text-royalblue rounded-full flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </span>
+                      <span>{instruction}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              {/* Recommended Products */}
+              {selectedRecipe.recommendedProducts && selectedRecipe.recommendedProducts.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-quicksand mb-3">Recommended Products</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedRecipe.recommendedProducts.map((product, index) => (
+                      <div key={index} className="bg-sapphire/20 p-3 rounded-lg border border-sapphire/30">
+                        <p className="font-bold text-swanwing text-sm">{product.name}</p>
+                        <p className="text-xs text-shellstone">{product.category}</p>
+                        <p className="text-xs text-quicksand mt-1">{product.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Date Created */}
+              <p className="text-xs text-shellstone/50 pt-4 border-t border-sapphire/30">
+                Saved on {new Date(selectedRecipe.dateCreated).toLocaleDateString('en-GB', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header Profile Card */}
       <div className="bg-sapphire/10 backdrop-blur-sm rounded-3xl p-6 md:p-10 border border-sapphire/30 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden transition-all hover:border-sapphire/50">
@@ -202,6 +371,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
       {/* Content Area */}
       <div className="min-h-[300px]">
          {activeTab === 'history' && (
+            <div className="animate-fade-in">
+               <div className="col-span-full text-center py-12 bg-sapphire/5 rounded-2xl border border-dashed border-sapphire/30">
+                  <Clock className="w-12 h-12 text-shellstone mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-bold text-swanwing mb-2">Activity History</h3>
+                  <p className="text-shellstone mb-6">Your cocktail generation activity will appear here soon.</p>
+                  <button 
+                     onClick={() => onNavigate(AppView.GENERATOR)}
+                     className="px-6 py-2 bg-quicksand text-royalblue rounded-lg font-bold hover:bg-quicksand/90 transition-all hover:scale-105"
+                  >
+                     Go to Mixer
+                  </button>
+               </div>
+            </div>
+         )}
+
+         {activeTab === 'saved' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
                {savedRecipes.length > 0 ? (
                   savedRecipes.map((recipe) => (
@@ -224,7 +409,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                               <span className="text-[10px] uppercase font-bold px-2 py-1 bg-sapphire/20 rounded text-shellstone">{recipe.difficulty}</span>
                               <span className="text-[10px] uppercase font-bold px-2 py-1 bg-sapphire/20 rounded text-shellstone">{recipe.glassware}</span>
                            </div>
-                           <button className="w-full py-2 bg-sapphire/20 hover:bg-quicksand text-quicksand hover:text-royalblue font-bold rounded-lg text-sm transition-colors">
+                           <button 
+                              onClick={() => setSelectedRecipe(recipe)}
+                              className="w-full py-2 bg-sapphire/20 hover:bg-quicksand text-quicksand hover:text-royalblue font-bold rounded-lg text-sm transition-colors"
+                           >
                               View Recipe
                            </button>
                         </div>
@@ -232,9 +420,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                   ))
                ) : (
                   <div className="col-span-full text-center py-12 bg-sapphire/5 rounded-2xl border border-dashed border-sapphire/30">
-                     <Clock className="w-12 h-12 text-shellstone mx-auto mb-4 opacity-50" />
-                     <h3 className="text-lg font-bold text-swanwing mb-2">No recipes yet</h3>
-                     <p className="text-shellstone mb-6">Start mixing to save your creations here.</p>
+                     <Heart className="w-12 h-12 text-shellstone mx-auto mb-4 opacity-50" />
+                     <h3 className="text-lg font-bold text-swanwing mb-2">No saved recipes yet</h3>
+                     <p className="text-shellstone mb-6">Create cocktails and save your favorites here.</p>
                      <button 
                         onClick={() => onNavigate(AppView.GENERATOR)}
                         className="px-6 py-2 bg-quicksand text-royalblue rounded-lg font-bold hover:bg-quicksand/90 transition-all hover:scale-105"
@@ -259,8 +447,27 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                             <button onClick={() => setIsEditing(true)} className="text-xs font-bold text-quicksand hover:underline">Edit</button>
                         ) : (
                             <div className="flex gap-2">
-                                <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-shellstone hover:text-swanwing">Cancel</button>
-                                <button onClick={handleProfileSave} className="text-xs font-bold text-quicksand hover:underline">Save</button>
+                                <button 
+                                  onClick={() => {
+                                    setIsEditing(false);
+                                    // Reset to original values
+                                    setEditName(user.name);
+                                    setEditEmail(user.email);
+                                    setEditPhone(user.phoneNumber || '');
+                                    setEditAddress(user.address || '');
+                                  }} 
+                                  className="text-xs font-bold text-shellstone hover:text-swanwing"
+                                  disabled={savingProfile}
+                                >
+                                  Cancel
+                                </button>
+                                <button 
+                                  onClick={handleProfileSave} 
+                                  className="text-xs font-bold text-quicksand hover:underline disabled:opacity-50"
+                                  disabled={savingProfile}
+                                >
+                                  {savingProfile ? 'Saving...' : 'Save'}
+                                </button>
                             </div>
                         )}
                      </div>
@@ -290,13 +497,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                              <label className="text-xs text-shellstone uppercase font-bold">Phone Number</label>
                              <input 
                                 type="tel" 
-                                value={user.phoneNumber || ''} 
+                                value={isEditing ? editPhone : (user.phoneNumber || '')} 
                                 readOnly={!isEditing}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    onUpdateProfile({ phoneNumber: val });
-                                    updateSupabaseMetadata({ phoneNumber: val });
-                                }}
+                                onChange={(e) => setEditPhone(e.target.value)}
                                 placeholder="+44"
                                 className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />
@@ -305,13 +508,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, savedRecipes
                              <label className="text-xs text-shellstone uppercase font-bold">Address</label>
                              <input 
                                 type="text" 
-                                value={user.address || ''} 
+                                value={isEditing ? editAddress : (user.address || '')} 
                                 readOnly={!isEditing}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    onUpdateProfile({ address: val });
-                                    updateSupabaseMetadata({ address: val });
-                                }}
+                                onChange={(e) => setEditAddress(e.target.value)}
                                 placeholder="Street Address"
                                 className={`w-full bg-royalblue border rounded-xl p-3 text-sm text-swanwing mt-1 transition-all ${isEditing ? 'border-quicksand shadow-lg' : 'border-sapphire/30 opacity-70'}`} 
                              />

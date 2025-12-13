@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { analyzeImageForRecipe, getCocktailTheme, CocktailTheme } from '../services/geminiService';
+import { saveRecipeToDatabase } from '../services/supabaseClient';
 import { CocktailRecipe, UserProfile } from '../types';
-import { Loader2, Camera, RefreshCw, Wand2, Wine, ShoppingCart, ExternalLink, Martini, Sparkles, Citrus, Lock, User, LogIn, Crown } from 'lucide-react';
+import { Loader2, Camera, RefreshCw, Wand2, Wine, ShoppingCart, ExternalLink, Martini, Sparkles, Citrus, Lock, User, LogIn, Crown, Heart } from 'lucide-react';
 import { SocialShare } from './SocialShare';
 
 const FREEMIUM_GENERATION_LIMIT = 5;
@@ -30,6 +31,8 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [shareText, setShareText] = useState('');
   const [generationsUsed, setGenerationsUsed] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,6 +125,22 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
 
   const triggerFileSelect = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!user) {
+      setSaveError('Please log in to save recipes.');
+      return;
+    }
+    if (recipe) {
+      const savedRecipe = await saveRecipeToDatabase(user.id, recipe);
+      if (savedRecipe) {
+        setSaved(true);
+        setSaveError('');
+      } else {
+        setSaveError('Failed to save recipe. Please try again.');
+      }
+    }
   };
 
   const getIconForCategory = (category: string) => {
@@ -351,10 +370,31 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
                                 <h3 className="text-2xl md:text-3xl font-bold serif text-swanwing">{recipe.name}</h3>
                                 <p className="text-sm text-quicksand font-bold mt-1">{recipe.difficulty} • {recipe.glassware}</p>
                             </div>
-                            <div className="text-right hidden md:block">
-                                <span className="text-2xl font-serif text-swanwing">£{recipe.estimatedCostGBP?.toFixed(2)}</span>
+                            <div className="flex items-center gap-3">
+                                {/* Save Recipe Button */}
+                                {user && (
+                                  <button
+                                    onClick={handleSaveRecipe}
+                                    disabled={saved}
+                                    className={`px-4 py-2 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2 font-bold text-sm ${saved ? 'bg-quicksand text-royalblue' : 'bg-royalblue/80 backdrop-blur text-quicksand hover:bg-quicksand hover:text-royalblue border border-sapphire/30'}`}
+                                    title={saved ? 'Recipe saved!' : 'Save this recipe'}
+                                  >
+                                    {saved ? <Heart size={18} fill="currentColor" /> : <Heart size={18} />}
+                                    {saved ? 'Saved!' : 'Save Recipe'}
+                                  </button>
+                                )}
+                                <div className="text-right hidden md:block">
+                                    <span className="text-2xl font-serif text-swanwing">£{recipe.estimatedCostGBP?.toFixed(2)}</span>
+                                </div>
                             </div>
                         </div>
+
+                        {/* Save Error Message */}
+                        {saveError && (
+                          <div className="mb-4 text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+                            {saveError}
+                          </div>
+                        )}
                         
                         <p className="italic text-shellstone mb-6 border-l-2 border-quicksand pl-3 text-sm">
                             {recipe.description}
@@ -423,6 +463,8 @@ export const CocktailVision: React.FC<CocktailVisionProps> = ({ user, onSubscrib
                             setRecipe(null);
                             setCocktailTheme(null);
                             setStage('idle');
+                            setSaved(false);
+                            setSaveError('');
                         }}
                         className="w-full py-3 border border-sapphire text-shellstone rounded-xl hover:bg-sapphire/20 hover:text-swanwing transition-colors flex items-center justify-center gap-2"
                     >
